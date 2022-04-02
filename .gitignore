@@ -1,0 +1,8 @@
+dist
+dist-newstyle
+*.o
+*.hi
+result
+out
+out.log
+config.json

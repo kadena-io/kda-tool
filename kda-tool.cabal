@@ -17,8 +17,6 @@ library
   -- other-modules:
   exposed-modules:
     AppMain
-    DB
-    DB.Message
     Logger
     Types.Env
     Utils
@@ -29,9 +27,6 @@ library
     , async >= 2.2 && < 2.3
     , attoparsec >= 0.13 && < 0.14
     , base >= 4.13 && < 4.14
-    , beam-core >= 0.9 && < 0.10
-    , beam-migrate >= 0.5 && < 0.6
-    , beam-postgres >= 0.5 && < 0.6
     , bytestring >= 0.10 && < 0.11
     , cassava >= 0.5 && < 0.6
     , containers >= 0.6 && < 0.7
@@ -43,6 +38,7 @@ library
     , http-client >= 0.6 && < 0.7
     , http-client-tls >= 0.3 && < 0.4
     , http-types >= 0.12 && < 0.13
+    , kadena-signing-api >= 0.1
     , katip >= 0.8 && < 0.9
     , lens >= 4.18 && < 4.19
     , lens-aeson >= 1.1 && < 1.2
@@ -50,6 +46,7 @@ library
     , mwc-random >= 0.14 && < 0.16
     , network-uri >= 2.6 && < 2.7
     , optparse-applicative >= 0.15 && < 0.17
+    , pact >= 4.2.0
     , resource-pool >= 0.2 && < 0.3
     , retry >= 0.8 && < 0.9
     , scientific >= 0.3 && < 0.4

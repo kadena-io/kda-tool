@@ -27,6 +27,9 @@ hpkgs.developPackage {
 
   overrides = self: super: with pkgs.haskell.lib;
   {
+    HsYAML = dontCheck super.HsYAML;
+    HsYAML-aeson = dontCheck super.HsYAML-aeson;
+
     # Don't run a package's test suite
     # beam-postgres = dontCheck super.beam-postgres;
 
@@ -92,6 +95,8 @@ hpkgs.developPackage {
   };
 
   source-overrides = {
+    HsYAML = nix-thunk.thunkSource ./deps/HsYAML;
+    HsYAML-aeson = nix-thunk.thunkSource ./deps/HsYAML-aeson;
     pact = thunkSource ./deps/pact;
     kadena-signing-api = (thunkSource ./deps/signing-api) + "/kadena-signing-api";
   };

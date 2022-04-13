@@ -56,8 +56,9 @@ logEnv e = logLE (_env_logEnv e)
 logLE :: MonadIO m => LogEnv -> Severity -> LogStr -> m ()
 logLE le sev s = runKatipT le $ logMsg mempty sev s
 
-data Command = Alpha | Beta | Gamma
-  deriving (Eq,Ord,Show,Read,Enum)
+data Command
+  = Batch [FilePath]
+  deriving (Eq,Ord,Show,Read)
 
 data Args = Args
   { _args_command :: Command
@@ -83,12 +84,15 @@ envP = Args
 --   <*> strOption   (long "dbpass" <> value ""          <> help "Postgres DB password")
 --   <*> strOption   (long "dbname" <> help "Postgres DB name")
 
+fileArg :: Parser FilePath
+fileArg = strArgument (metavar "FILE")
+
 commands :: Parser Command
 commands = hsubparser
-  (  command "alpha" (info (pure Alpha)
-       (progDesc "Alpha"))
-  <> command "beta" (info (pure Beta)
-       (progDesc "Beta"))
-  <> command "gamma" (info (pure Gamma)
-       (progDesc "Gamma"))
+  (  command "batch" (info (Batch <$> many fileArg)
+       (progDesc "Batch multiple command files into a group"))
+--  <> command "beta" (info (pure Beta)
+--       (progDesc "Beta"))
+--  <> command "gamma" (info (pure Gamma)
+--       (progDesc "Gamma"))
   )

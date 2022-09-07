@@ -54,6 +54,20 @@ hpkgs.developPackage {
       sha256 = "1i4cf1xfbkxlxshwlsxgw2w5gi3hkkfm1n99vnzq7rixz8nxcw7r";
     } {});
 
+    direct-sqlite = dontCheck (self.callHackageDirect {
+      pkg = "direct-sqlite";
+      ver = "2.3.27";
+      sha256 = "0w8wj3210h08qlws40qhidkscgsil3635zk83kdlj929rbd8khip";
+    } {});
+
+    katip = dontCheck super.katip;
+
+    libBF = doJailbreak (dontCheck (self.callHackageDirect {
+      pkg = "libBF";
+      ver = "0.6.3";
+      sha256 = "0j0i39jb389rnrkkw2xqz10471afxys79nf31hhlqr4fk6ddhjf7";
+    } {}));
+
     megaparsec = dontCheck (self.callHackageDirect {
       pkg = "megaparsec";
       ver = "9.0.0";
@@ -85,8 +99,22 @@ hpkgs.developPackage {
 
     sbv = dontCheck (self.callHackageDirect {
       pkg = "sbv";
-      ver = "8.8";
-      sha256 = "0sbl7xczk7qn658j4zcp7wg0x9gxy07wqxv7xnjhzrjx066qjix1";
+      ver = "9.0";
+      sha256 = "14g2qax1vc7q4g78fa562dviqvcd0l52kd5jmgv90g3g3ci15bnl";
+    } {});
+
+    # comment from pact...
+    # sbv requires this even though it is not used in the build (and the hash is invalid)
+    tasty-bench = dontCheck (self.callHackageDirect {
+      pkg = "tasty-bench";
+      ver = "0.3.1";
+      sha256 = "0000000000000000000000000000000000000000000000000000";
+    } {});
+
+    unordered-containers = dontCheck (self.callHackageDirect {
+      pkg = "unordered-containers";
+      ver = "0.2.15.0";
+      sha256 = "101fjg7jsa0mw57clpjwc2vgrdkrnn0vmf4xgagja21ynwwbl2b5";
     } {});
 
     # To discover more functions that can be used to modify haskell
@@ -97,6 +125,7 @@ hpkgs.developPackage {
   source-overrides = {
     HsYAML = nix-thunk.thunkSource ./deps/HsYAML;
     HsYAML-aeson = nix-thunk.thunkSource ./deps/HsYAML-aeson;
+    chainweb-api = thunkSource ./deps/chainweb-api;
     pact = thunkSource ./deps/pact;
     kadena-signing-api = (thunkSource ./deps/signing-api) + "/kadena-signing-api";
   };

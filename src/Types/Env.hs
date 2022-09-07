@@ -23,6 +23,7 @@ import           Network.HTTP.Client (Manager)
 import           Options.Applicative
 import           System.Random.MWC
 ------------------------------------------------------------------------------
+import           Commands.Send
 import           Utils
 ------------------------------------------------------------------------------
 
@@ -58,6 +59,8 @@ logLE le sev s = runKatipT le $ logMsg mempty sev s
 
 data Command
   = Batch [FilePath]
+  | Quicksign
+  | Send SendArgs
   deriving (Eq,Ord,Show,Read)
 
 data Args = Args
@@ -91,6 +94,8 @@ commands :: Parser Command
 commands = hsubparser
   (  command "batch" (info (Batch <$> many fileArg)
        (progDesc "Batch multiple command files into a group"))
+  <> command "send" (info (Send <$> sendP)
+       (progDesc "Send commands to a node's /send endpoint"))
 --  <> command "beta" (info (pure Beta)
 --       (progDesc "Beta"))
 --  <> command "gamma" (info (pure Gamma)

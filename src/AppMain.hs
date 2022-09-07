@@ -19,10 +19,12 @@ import           Katip
 import           Network.HTTP.Client hiding (withConnection)
 import           Network.HTTP.Client.TLS
 import           Options.Applicative
+import           System.Exit
 import           System.IO
 import           System.Random.MWC
 import           Text.Printf
 ------------------------------------------------------------------------------
+import           Commands.Send
 import           Types.Env
 ------------------------------------------------------------------------------
 
@@ -45,6 +47,8 @@ appMain = do
     let theEnv = Env mgr le cd rand
     case c of
       Batch files -> batchCommand files
+      Send args -> sendCommand args
+      _ -> putStrLn "Not implemented yet" >> exitWith (ExitFailure 1)
 
   where
     opts = info (envP <**> helper)

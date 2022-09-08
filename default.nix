@@ -1,6 +1,6 @@
-{ compiler ? "ghc881"
-, rev      ? "c4f97342ba8ac84def72328616dd05d005bb4715"
-, sha256   ? "1p2gbisib2jrz4r9b5vzfvmirgmz9sr2ksalngaw908vvg9hsvai"
+{ compiler ? "ghc884"
+, rev      ? "eded7b8a2387e8c10aa45b951f47a13ca28def38"
+, sha256   ? "148njnx1j90q94gyqyp92knhcf2xypy5vy48pd9kaq23adi57p9c"
 , pkgs     ?
     import (builtins.fetchTarball {
       url    = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
@@ -30,18 +30,15 @@ hpkgs.developPackage {
     HsYAML = dontCheck super.HsYAML;
     HsYAML-aeson = dontCheck super.HsYAML-aeson;
 
+    ansi-terminal = dontCheck (self.callHackageDirect {
+      pkg = "ansi-terminal";
+      ver = "0.10.3";
+      sha256 = "1aa8lh7pl054kz7i59iym49s8w473nhdqgc3pq16cp5v4358hw5k";
+    } {});
+
     # Don't run a package's test suite
     # beam-postgres = dontCheck super.beam-postgres;
 
-    # Get a specific hackage version straight from hackage. Unlike the above
-    # callHackage approach, this will always succeed if the version is on
-    # hackage. The downside is that you have to specify the hash manually.
-    mwc-random = self.callHackageDirect {
-      pkg = "mwc-random";
-      ver = "0.14.0.0";
-      sha256 = "10jaajbnlcwqgqdnb94q0k8pzx11ff569af8a8d6k26xc954m48p";
-    } {};
-    
     base16 = dontCheck (self.callHackageDirect {
       pkg = "base16";
       ver = "0.3.1.0";
@@ -74,6 +71,12 @@ hpkgs.developPackage {
       sha256 = "03kqcfpsmi5l4mr6lsmlpks2mp9prf9yy97mmrkclwqpxybdjx2l";
     } {});
 
+    mwc-random = self.callHackageDirect {
+      pkg = "mwc-random";
+      ver = "0.15.0.2";
+      sha256 = "1mpill3lwrrhlzq0ccs8wyzsqhy1a2hmva17qxpgsy2zzqxi1nx1";
+    } {};
+
     # neat-interpolation >= 0.4 breaks Chainweb genesis blocks!
     neat-interpolation = dontCheck (self.callHackageDirect {
       pkg = "neat-interpolation";
@@ -96,6 +99,11 @@ hpkgs.developPackage {
       ver = "1.6.0";
       sha256 = "0f8wqaj3cv3yra938afqf62wrvq20yv9jd048miw5zrfavw824aa";
     } {});
+    prettyprinter-ansi-terminal = dontCheck (self.callHackageDirect {
+      pkg = "prettyprinter-ansi-terminal";
+      ver = "1.1.2";
+      sha256 = "0lwcqndppw3jc55rlnn6sp76zmjx2yzl21g9jhg27k2rdnjwd7md";
+    } {});
 
     sbv = dontCheck (self.callHackageDirect {
       pkg = "sbv";
@@ -109,6 +117,12 @@ hpkgs.developPackage {
       pkg = "tasty-bench";
       ver = "0.3.1";
       sha256 = "0000000000000000000000000000000000000000000000000000";
+    } {});
+
+    trifecta = dontCheck (self.callHackageDirect {
+      pkg = "trifecta";
+      ver = "2.1";
+      sha256 = "0hbv8q12rgg4ni679fbx7ac3blzqxj06dw1fyr6ipc8kjpypb049";
     } {});
 
     unordered-containers = dontCheck (self.callHackageDirect {

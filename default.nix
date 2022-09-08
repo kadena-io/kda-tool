@@ -125,6 +125,7 @@ hpkgs.developPackage {
   source-overrides = {
     HsYAML = nix-thunk.thunkSource ./deps/HsYAML;
     HsYAML-aeson = nix-thunk.thunkSource ./deps/HsYAML-aeson;
+    cardano-crypto = nix-thunk.thunkSource ./deps/cardano-crypto;
     chainweb-api = thunkSource ./deps/chainweb-api;
     pact = thunkSource ./deps/pact;
     kadena-signing-api = (thunkSource ./deps/signing-api) + "/kadena-signing-api";

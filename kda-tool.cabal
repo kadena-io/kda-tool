@@ -34,13 +34,16 @@ library
     , async >= 2.2 && < 2.3
     , attoparsec >= 0.13 && < 0.14
     , base >= 4.13 && < 4.14
+    , base16 >= 0.3.0 && < 0.4
     , bytestring >= 0.10 && < 0.11
+    , cardano-crypto >= 1.1.0 && < 1.2
     , cassava >= 0.5 && < 0.6
     , chainweb-api
     , connection
     , containers >= 0.6 && < 0.7
     , cryptohash-sha256 >= 0.11 && < 0.12
     , cryptohash-sha512 >= 0.11 && < 0.12
+    , cryptonite >= 0.28 && < 0.29
     , data-default >= 0.7 && < 0.8
     , dlist >= 0.8 && < 0.9
     , errors >= 2.3 && < 2.4
@@ -52,6 +55,7 @@ library
     , katip >= 0.8 && < 0.9
     , lens >= 4.18 && < 4.19
     , lens-aeson >= 1.1 && < 1.2
+    , memory >= 0.15.0 && < 0.16
     , mtl >= 2.2 && < 2.3
     , mwc-random >= 0.14 && < 0.16
     , network-uri >= 2.6 && < 2.7

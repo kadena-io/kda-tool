@@ -10,3 +10,8 @@ source-repository-package
     location: https://github.com/kadena-io/pact.git
     tag: d15d87d5b0375169264a9b97cacfe1e51a10ff6e
 
+source-repository-package
+    type: git
+    location: https://github.com/kadena-io/signing-api.git
+    tag: e393491baf28b8e028d091258313b334c5f0aa93
+

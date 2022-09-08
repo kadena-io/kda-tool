@@ -11,7 +11,6 @@ maintainer:          mightybyte@gmail.com
 copyright:           Kadena LLC
 -- category:
 build-type:          Simple
-extra-source-files:  CHANGELOG.md
 
 library
   -- other-modules:

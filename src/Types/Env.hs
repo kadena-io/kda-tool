@@ -23,8 +23,7 @@ import           Network.HTTP.Client (Manager)
 import           Options.Applicative
 import           System.Random.MWC
 ------------------------------------------------------------------------------
-import           Commands.Send
-import           Utils
+import           Types.HostPort
 ------------------------------------------------------------------------------
 
 data ConfigData = ConfigData
@@ -57,10 +56,24 @@ logEnv e = logLE (_env_logEnv e)
 logLE :: MonadIO m => LogEnv -> Severity -> LogStr -> m ()
 logLE le sev s = runKatipT le $ logMsg mempty sev s
 
+data NodeCmdArgs = NodeCmdArgs
+  { _nodeCmdArgs_files :: [FilePath]
+  , _nodeCmdArgs_node :: HostPort
+  } deriving (Eq,Ord,Show,Read)
+
+nodeCmdP :: Parser NodeCmdArgs
+nodeCmdP = NodeCmdArgs
+  <$> many (strArgument (help "File(s) containing command(s) to send"))
+  <*> option (eitherReader (hostPortFromText . T.pack))
+             (long "node" <> short 'n' <>
+              help "Node hostname and optional port separated by a ':'")
+
 data Command
   = Batch [FilePath]
   | Quicksign
-  | Send SendArgs
+  | Local NodeCmdArgs
+  | Poll NodeCmdArgs
+  | Send NodeCmdArgs
   deriving (Eq,Ord,Show,Read)
 
 data Args = Args
@@ -78,15 +91,6 @@ envP = Args
   <*> option (maybeReader (textToSeverity . T.pack)) (long "log-level" <> value InfoS <> help "Minimum severity to log")
   <*> optional (strOption (long "config" <> short 'c' <> help "Path of config file"))
 
--- -- | These defaults are pulled from the postgres-simple docs.
--- connectInfoP :: Parser ConnectInfo
--- connectInfoP = ConnectInfo
---   <$> strOption   (long "dbhost" <> value "localhost" <> help "Postgres DB hostname")
---   <*> option auto (long "dbport" <> value 5432        <> help "Postgres DB port")
---   <*> strOption   (long "dbuser" <> value "postgres"  <> help "Postgres DB user")
---   <*> strOption   (long "dbpass" <> value ""          <> help "Postgres DB password")
---   <*> strOption   (long "dbname" <> help "Postgres DB name")
-
 fileArg :: Parser FilePath
 fileArg = strArgument (metavar "FILE")
 
@@ -94,10 +98,10 @@ commands :: Parser Command
 commands = hsubparser
   (  command "batch" (info (Batch <$> many fileArg)
        (progDesc "Batch multiple command files into a group"))
-  <> command "send" (info (Send <$> sendP)
+  <> command "local" (info (Local <$> nodeCmdP)
+       (progDesc "Test commands locally with a node's /local endpoint"))
+  <> command "poll" (info (Poll <$> nodeCmdP)
+       (progDesc "Poll command results with a node's /poll endpoint"))
+  <> command "send" (info (Send <$> nodeCmdP)
        (progDesc "Send commands to a node's /send endpoint"))
---  <> command "beta" (info (pure Beta)
---       (progDesc "Beta"))
---  <> command "gamma" (info (pure Gamma)
---       (progDesc "Gamma"))
   )

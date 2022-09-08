@@ -17,10 +17,13 @@ library
   -- other-modules:
   exposed-modules:
     AppMain
+    Commands.Local
+    Commands.Poll
     Commands.Send
     Logger
     Types.Env
     Types.HostPort
+    Types.Node
     Utils
 
   build-depends:
@@ -34,12 +37,14 @@ library
     , bytestring >= 0.10 && < 0.11
     , cassava >= 0.5 && < 0.6
     , chainweb-api
+    , connection
     , containers >= 0.6 && < 0.7
     , cryptohash-sha256 >= 0.11 && < 0.12
     , cryptohash-sha512 >= 0.11 && < 0.12
     , data-default >= 0.7 && < 0.8
     , dlist >= 0.8 && < 0.9
     , errors >= 2.3 && < 2.4
+    , filepath
     , http-client >= 0.6 && < 0.7
     , http-client-tls >= 0.3 && < 0.4
     , http-types >= 0.12 && < 0.13

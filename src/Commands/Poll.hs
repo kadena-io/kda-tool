@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Commands.Send
-  ( sendCommand
+module Commands.Poll
+  ( pollCommand
   ) where
 
 ------------------------------------------------------------------------------
@@ -29,16 +29,16 @@ import           Types.Node
 import           Utils
 ------------------------------------------------------------------------------
 
-sendCommand :: Env -> NodeCmdArgs -> IO ()
-sendCommand e args = do
+pollCommand :: Env -> NodeCmdArgs -> IO ()
+pollCommand e args = do
   logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
   bss <- mapM LB.readFile $ _nodeCmdArgs_files args
   res <- runExceptT $ do
     txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
     n <- ExceptT $ getNode (_nodeCmdArgs_node args)
     let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
-    logEnv e DebugS $ fromStr $ printf "Sending %d commands to %d chains\n" (length txs) (length groups)
-    responses <- lift $ mapM (sendToNode n) groups
+    logEnv e DebugS $ fromStr $ printf "Polling %d commands to %d chains\n" (length txs) (length groups)
+    responses <- lift $ mapM (\ts -> pollNode n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
     lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
   case res of
     Left er -> putStrLn er >> exitFailure

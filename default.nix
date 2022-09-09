@@ -1,6 +1,6 @@
-{ compiler ? "ghc884"
-, rev      ? "eded7b8a2387e8c10aa45b951f47a13ca28def38"
-, sha256   ? "148njnx1j90q94gyqyp92knhcf2xypy5vy48pd9kaq23adi57p9c"
+{ compiler ? "ghc8107"
+, rev      ? "7a94fcdda304d143f9a40006c033d7e190311b54"
+, sha256   ? "0d643wp3l77hv2pmg2fi7vyxn4rwy0iyr8djcw1h5x72315ck9ik"
 , pkgs     ?
     import (builtins.fetchTarball {
       url    = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
@@ -8,12 +8,14 @@
       config.allowBroken = false;
       config.allowUnfree = true;
     }
+, returnShellEnv ? false
+, mkDerivation ? null
 }:
 let gitignoreSrc = import (pkgs.fetchFromGitHub {
       owner = "hercules-ci";
       repo = "gitignore";
-      rev = "2ced4519f865341adcb143c5d668f955a2cb997f";
-      sha256 = "0fc5bgv9syfcblp23y05kkfnpgh3gssz6vn24frs8dzw39algk2z";
+      rev = "9e80c4d83026fa6548bc53b1a6fab8549a6991f6";
+      sha256 = "04n9chlpbifgc5pa3zx6ff3rji9am6msrbn1z3x1iinjz2xjfp4p";
     }) {};
     hpkgs = pkgs.haskell.packages.${compiler};
 
@@ -27,23 +29,14 @@ hpkgs.developPackage {
 
   overrides = self: super: with pkgs.haskell.lib;
   {
-    HsYAML = dontCheck super.HsYAML;
-    HsYAML-aeson = dontCheck super.HsYAML-aeson;
 
-    attoparsec = dontCheck (self.callHackageDirect {
-      pkg = "attoparsec";
-      ver = "0.13.2.5";
-      sha256 = "0qwshlgr85mk73mp2j3bnvg2w30gmsqgn13id0baqwylg797hhmi";
-    } {});
-
-    attoparsec-iso8601 = doJailbreak (dontCheck super.attoparsec-iso8601);
-
-    # Don't run a package's test suite
-    # beam-postgres = dontCheck super.beam-postgres;
-
-    base16 = doJailbreak (dontCheck super.base16);
-
-    chainweb-api = doJailbreak (dontCheck super.chainweb-api);
+#    attoparsec = dontCheck (self.callHackageDirect {
+#      pkg = "attoparsec";
+#      ver = "0.13.2.5";
+#      sha256 = "0qwshlgr85mk73mp2j3bnvg2w30gmsqgn13id0baqwylg797hhmi";
+#    } {});
+#
+#    attoparsec-iso8601 = doJailbreak (dontCheck super.attoparsec-iso8601);
 
     direct-sqlite = dontCheck (self.callHackageDirect {
       pkg = "direct-sqlite";
@@ -54,11 +47,11 @@ hpkgs.developPackage {
     kadena-signing-api = doJailbreak super.kadena-signing-api;
     katip = dontCheck super.katip;
 
-    pact-time = dontCheck (self.callHackageDirect {
-      pkg = "pact-time";
-      ver = "0.2.0.0";
-      sha256 = "1cfn74j6dr4279bil9k0n1wff074sdlz6g1haqyyy38wm5mdd7mr";
-    } {});
+#    pact-time = dontCheck (self.callHackageDirect {
+#      pkg = "pact-time";
+#      ver = "0.2.0.0";
+#      sha256 = "1cfn74j6dr4279bil9k0n1wff074sdlz6g1haqyyy38wm5mdd7mr";
+#    } {});
 
     prettyprinter-ansi-terminal = dontCheck (self.callHackageDirect {
       pkg = "prettyprinter-ansi-terminal";
@@ -66,15 +59,19 @@ hpkgs.developPackage {
       sha256 = "0lwcqndppw3jc55rlnn6sp76zmjx2yzl21g9jhg27k2rdnjwd7md";
     } {});
 
+    HsYAML = dontCheck super.HsYAML;
+    HsYAML-aeson = dontCheck super.HsYAML-aeson;
+    base16 = doJailbreak (dontCheck super.base16);
+    chainweb-api = doJailbreak (dontCheck super.chainweb-api);
     cryptonite = dontCheck (appendConfigureFlag super.cryptonite "-fsupport_pclmuldq");
-    hashable       = doJailbreak super.hashable;
-    pact = dontCheck (appendConfigureFlag super.pact "-fcryptonite-ed25519 -f-build-tool -fno-advice");
-
+    hashable = doJailbreak super.hashable;
 
     # These tests pull in unnecessary dependencies
-    http2         = dontCheck super.http2;
+    http2 = dontCheck super.http2;
+
+    pact = dontCheck (appendConfigureFlag super.pact "-fcryptonite-ed25519 -f-build-tool -fno-advice");
     prettyprinter = dontCheck super.prettyprinter;
-    aeson         = dontCheck super.aeson;
+    aeson = dontCheck super.aeson;
   };
 
   source-overrides = {
@@ -102,8 +99,11 @@ hpkgs.developPackage {
 
   modifier = drv: pkgs.haskell.lib.overrideCabal drv (attrs: {
     buildTools = (attrs.buildTools or []) ++ [
+      pkgs.zlib
       hpkgs.cabal-install
       hpkgs.ghcid
     ];
   });
+
+  inherit returnShellEnv;
 }

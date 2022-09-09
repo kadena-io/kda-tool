@@ -54,8 +54,6 @@ hpkgs.developPackage {
     kadena-signing-api = doJailbreak super.kadena-signing-api;
     katip = dontCheck super.katip;
 
-    pact = dontCheck (appendConfigureFlag super.pact "-f+cryptonite-ed25519 -f-build-tool");
-
     pact-time = dontCheck (self.callHackageDirect {
       pkg = "pact-time";
       ver = "0.2.0.0";
@@ -68,7 +66,10 @@ hpkgs.developPackage {
       sha256 = "0lwcqndppw3jc55rlnn6sp76zmjx2yzl21g9jhg27k2rdnjwd7md";
     } {});
 
+    cryptonite = dontCheck (appendConfigureFlag super.cryptonite "-fsupport_pclmuldq");
     hashable       = doJailbreak super.hashable;
+    pact = dontCheck (appendConfigureFlag super.pact "-fcryptonite-ed25519 -f-build-tool -fno-advice");
+
 
     # These tests pull in unnecessary dependencies
     http2         = dontCheck super.http2;

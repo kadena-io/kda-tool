@@ -8,7 +8,7 @@ import           GHC.Generics
 ------------------------------------------------------------------------------
 
 data KeyType = Plain | HD
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Enum,Bounded)
 
 keyTypeToText :: KeyType -> Text
 keyTypeToText Plain = "plain"

@@ -22,6 +22,7 @@ library
     Logger
     Types.Env
     Types.HostPort
+    Types.KeyType
     Types.Node
     Utils
 

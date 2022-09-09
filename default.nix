@@ -121,7 +121,7 @@ hpkgs.developPackage {
       sha256 = "0lcgjxw690hyswqxaghf7z08mx5694l7kijyrsjd42yxswajlplx";
     } {});
 
-    pact = dontCheck (appendConfigureFlag super.pact "-f-build-tool");
+    pact = dontCheck (appendConfigureFlag super.pact "-f+cryptonite-ed25519 -f-build-tool");
 
     pact-time = dontCheck (self.callHackageDirect {
       pkg = "pact-time";

@@ -11,9 +11,10 @@ module Types.Env where
 ------------------------------------------------------------------------------
 -- import           Control.Concurrent
 -- import           Control.Exception
-import           Control.Lens
+import           Control.Lens (makeClassy)
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Bifunctor
 -- import           Data.ByteString (ByteString)
 import           Data.Default
 import           Data.Text (Text)
@@ -97,10 +98,13 @@ fileArg :: Parser FilePath
 fileArg = strArgument (metavar "FILE")
 
 keyTypeP :: Parser KeyType
-keyTypeP = strArgument $ mconcat
-  [ completeWith (map keyTypeToText [minBound..maxBound])
+keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
+  [ completeWith (map rdr [minBound..maxBound])
   , help "Key type (plain or hd)"
+  , metavar "KEY_TYPE"
   ]
+  where
+    rdr = T.unpack . keyTypeToText
 
 commands :: Parser Command
 commands = hsubparser
@@ -110,7 +114,7 @@ commands = hsubparser
        (progDesc "Poll command results with a node's /poll endpoint"))
   <> command "send" (info (Send <$> nodeCmdP)
        (progDesc "Send commands to a node's /send endpoint"))
-  <> command "keygen" (info keyTypeP
+  <> command "keygen" (info (Keygen <$> keyTypeP)
        (progDesc "Generate keys to sign Kadena transactions"))
 --  <> command "batch" (info (Batch <$> many fileArg)
 --       (progDesc "Batch multiple command files into a group"))

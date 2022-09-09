@@ -36,7 +36,7 @@ appMain = do
     le <- liftIO $ registerScribe "stderr" s1 defaultScribeSettings
       =<< initLogEnv "myapp" "production"
 
-    logLE le InfoS $ logStr $ "Logging with severity " <> show sev
+    logLE le DebugS $ logStr $ "Logging with severity " <> show sev
     ecd <- maybe (pure $ Right def) A.eitherDecodeFileStrict' configFile
     cd <- case ecd of
       Left e -> error (printf "Error parsing %s\n%s" (fromJust configFile) e)

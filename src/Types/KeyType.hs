@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Types.KeyType where
 
 ------------------------------------------------------------------------------
@@ -15,6 +17,6 @@ keyTypeToText Plain = "plain"
 keyTypeToText HD = "hd"
 
 keyTypeFromText :: Text -> Either String KeyType
-keyTypeFromText "plain" = Plain
-keyTypeFromText "hd" = HD
-keyTypeFromText t = Left "(Invalid KeyType: " <> T.unpack t)
+keyTypeFromText "plain" = Right Plain
+keyTypeFromText "hd" = Right HD
+keyTypeFromText t = Left ("Invalid KeyType: " <> T.unpack t)

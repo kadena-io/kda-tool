@@ -30,14 +30,6 @@ hpkgs.developPackage {
   overrides = self: super: with pkgs.haskell.lib;
   {
 
-#    attoparsec = dontCheck (self.callHackageDirect {
-#      pkg = "attoparsec";
-#      ver = "0.13.2.5";
-#      sha256 = "0qwshlgr85mk73mp2j3bnvg2w30gmsqgn13id0baqwylg797hhmi";
-#    } {});
-#
-#    attoparsec-iso8601 = doJailbreak (dontCheck super.attoparsec-iso8601);
-
     direct-sqlite = dontCheck (self.callHackageDirect {
       pkg = "direct-sqlite";
       ver = "2.3.27";
@@ -46,12 +38,6 @@ hpkgs.developPackage {
 
     kadena-signing-api = doJailbreak super.kadena-signing-api;
     katip = dontCheck super.katip;
-
-#    pact-time = dontCheck (self.callHackageDirect {
-#      pkg = "pact-time";
-#      ver = "0.2.0.0";
-#      sha256 = "1cfn74j6dr4279bil9k0n1wff074sdlz6g1haqyyy38wm5mdd7mr";
-#    } {});
 
     prettyprinter-ansi-terminal = dontCheck (self.callHackageDirect {
       pkg = "prettyprinter-ansi-terminal";

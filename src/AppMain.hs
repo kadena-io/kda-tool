@@ -45,7 +45,7 @@ appMain = do
     let theEnv = Env mgr le cd rand
     case c of
       --Batch files -> batchCommand files
-      Keygen keyType -> keygenCommand theEnv keyType
+      Keygen keyType -> keygenCommand keyType
       Local args -> localCommand theEnv args
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args

@@ -9,13 +9,9 @@
 module Types.Env where
 
 ------------------------------------------------------------------------------
--- import           Control.Concurrent
--- import           Control.Exception
 import           Control.Lens (makeClassy)
 import           Control.Monad.Reader
 import           Data.Aeson
-import           Data.Bifunctor
--- import           Data.ByteString (ByteString)
 import           Data.Default
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -115,7 +111,7 @@ commands = hsubparser
   <> command "send" (info (Send <$> nodeCmdP)
        (progDesc "Send commands to a node's /send endpoint"))
   <> command "keygen" (info (Keygen <$> keyTypeP)
-       (progDesc "Generate keys to sign Kadena transactions"))
+       (progDesc "Generate keys / recovery phrases and print them to stdout"))
 --  <> command "batch" (info (Batch <$> many fileArg)
 --       (progDesc "Batch multiple command files into a group"))
   )

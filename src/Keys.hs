@@ -3,20 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Keys
-  ( mnemonicToRoot
-  , genMnemonic12
-  , generateCryptoPairFromRoot
-  , mkPhraseMapFromMnemonic
-  , KeyIndex(..)
-  , MnemonicPhrase
-  , mkMnemonicPhrase
-  , readPhraseFromFile
-  , KeyMaterial(..)
-  , readKeyMaterial
-  , signWithMaterial
-  , getMaterialPublic
-  ) where
+module Keys where
 
 ------------------------------------------------------------------------------
 import qualified Cardano.Crypto.Wallet as Crypto
@@ -30,7 +17,6 @@ import qualified Crypto.PubKey.Ed25519 as ED25519
 import qualified Crypto.Random.Entropy
 import           Data.Aeson (Value(..))
 import           Data.Aeson.Lens
-import           Data.Bifunctor
 import           Data.Bits ((.|.))
 import           Data.ByteArray (ByteArrayAccess)
 import qualified Data.ByteArray as BA
@@ -142,7 +128,7 @@ readKeyMaterial h mindex = do
           pub <- maybeCryptoError $ ED25519.publicKey rawPub
           sec <- maybeCryptoError $ ED25519.secretKey rawSec
           pure $ RawKeyPair sec pub
-        Just index -> (\p -> RecoveryPhrase p index) <$> mkMnemonicPhrase (T.words t)
+        Just ind -> (\p -> RecoveryPhrase p ind) <$> mkMnemonicPhrase (T.words t)
   return res
 
 genPairFromPhrase :: MnemonicPhrase -> KeyIndex -> (EncryptedPrivateKey, PublicKey)
@@ -150,13 +136,13 @@ genPairFromPhrase phrase idx =
   generateCryptoPairFromRoot (mnemonicToRoot phrase) "" idx
 
 signWithMaterial :: KeyMaterial -> ByteString -> ByteString
-signWithMaterial (RecoveryPhrase phrase index) msg =
-  let (xprv, _) = genPairFromPhrase phrase index
+signWithMaterial (RecoveryPhrase phrase ind) msg =
+  let (xprv, _) = genPairFromPhrase phrase ind
    in T.encodeUtf8 $ sigToText $ signHD xprv msg
 signWithMaterial (RawKeyPair secret _) msg = BA.convert $ sign secret msg
 
 getMaterialPublic :: KeyMaterial -> Text
-getMaterialPublic (RecoveryPhrase phrase index) = pubKeyToText $ snd $ genPairFromPhrase phrase index
+getMaterialPublic (RecoveryPhrase phrase ind) = pubKeyToText $ snd $ genPairFromPhrase phrase ind
 getMaterialPublic (RawKeyPair _ pub) = toB16 $ BA.convert pub
 
 newtype PublicKey = PublicKey ByteString

@@ -19,6 +19,7 @@ import           System.IO
 import           System.Random.MWC
 import           Text.Printf
 ------------------------------------------------------------------------------
+import           Commands.Keygen
 import           Commands.Local
 import           Commands.Poll
 import           Commands.Send
@@ -35,7 +36,7 @@ appMain = do
     le <- liftIO $ registerScribe "stderr" s1 defaultScribeSettings
       =<< initLogEnv "myapp" "production"
 
-    logLE le InfoS $ logStr $ "Logging with severity " <> show sev
+    logLE le DebugS $ logStr $ "Logging with severity " <> show sev
     ecd <- maybe (pure $ Right def) A.eitherDecodeFileStrict' configFile
     cd <- case ecd of
       Left e -> error (printf "Error parsing %s\n%s" (fromJust configFile) e)
@@ -43,7 +44,8 @@ appMain = do
     rand <- createSystemRandom
     let theEnv = Env mgr le cd rand
     case c of
-      Batch files -> batchCommand files
+      --Batch files -> batchCommand files
+      Keygen keyType -> keygenCommand theEnv keyType
       Local args -> localCommand theEnv args
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args

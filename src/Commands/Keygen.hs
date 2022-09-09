@@ -1,30 +1,37 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Commands.Keygen
-  ( localCommand
+  ( keygenCommand
   ) where
 
 ------------------------------------------------------------------------------
-import           Chainweb.Api.Transaction
-import           Control.Error
-import           Control.Monad.Trans
-import           Data.Aeson
-import           Data.Bifunctor
-import qualified Data.ByteString.Lazy as LB
-import           Data.String.Conv
+import           Data.ByteString.Base16
+import qualified Data.Map as M
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Katip
-import           System.Exit
-import           Text.Printf
+--import           Pact.Types.Crypto
 ------------------------------------------------------------------------------
+import           Keys
 import           Types.Env
-import           Types.Node
+import           Types.KeyType
 import           Utils
 ------------------------------------------------------------------------------
 
 keygenCommand :: Env -> KeyType -> IO ()
 keygenCommand e kt = do
-    let toPhrase = T.unwords . Map.elems . mkPhraseMapFromMnemonic
-    let prettyErr e = "ERROR generating menmonic: " <> tshow e
-    res <- either prettyErr toPhrase <$> genMnemonic12
-    T.putStrLn res
+    case kt of
+      Plain -> do
+        putStrLn "Not implemented yet"
+
+        -- Getting a linker error
+        -- multiple definition of 'batch_point_buffer'
+
+        --kp <- genKeyPair defaultScheme
+        --putStrLn $ "public: " ++ T.unpack (encodeBase16 $ getPublic kp)
+        --putStrLn $ "secret: " ++ T.unpack (encodeBase16 $ getPrivate kp)
+      HD -> do
+        let toPhrase = T.unwords . M.elems . mkPhraseMapFromMnemonic
+        let prettyErr e = "ERROR generating menmonic: " <> tshow e
+        res <- either prettyErr toPhrase <$> genMnemonic12
+        T.putStrLn res

@@ -1,3 +1,8 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Keys
   ( mnemonicToRoot
   , genMnemonic12
@@ -15,6 +20,8 @@ module Keys
 
 ------------------------------------------------------------------------------
 import qualified Cardano.Crypto.Wallet as Crypto
+import           Control.Error
+import           Control.Lens
 import           Control.Monad.IO.Class
 import qualified Crypto.Encoding.BIP39 as Crypto
 import qualified Crypto.Encoding.BIP39.English as Crypto
@@ -22,12 +29,16 @@ import           Crypto.Error
 import qualified Crypto.PubKey.Ed25519 as ED25519
 import qualified Crypto.Random.Entropy
 import           Data.Aeson (Value(..))
+import           Data.Aeson.Lens
 import           Data.Bifunctor
 import           Data.Bits ((.|.))
+import           Data.ByteArray (ByteArrayAccess)
 import qualified Data.ByteArray as BA
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as B16
 import qualified Data.Map as Map
+import           Data.String (IsString, fromString)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -35,11 +46,10 @@ import qualified Data.Text.IO as T
 import           Data.Word (Word32)
 import qualified Data.YAML.Aeson as YA
 import           GHC.Natural
-import           Keychain.KeyPair
-import           Keychain.Utils
-import           Lens.Micro
-import           Lens.Micro.Aeson
 import           System.IO
+import           Text.Read (readMaybe)
+------------------------------------------------------------------------------
+import           Utils
 ------------------------------------------------------------------------------
 
 
@@ -191,3 +201,24 @@ verify (PublicKey pub) (Signature sig) msg = Crypto.verify xpub msg sig
   where
     dummyChainCode = BS.replicate 32 minBound
     Right xpub = Crypto.xpub $ pub <> dummyChainCode
+
+baToText :: ByteArrayAccess b => b -> Text
+baToText = T.decodeUtf8 . BA.pack . BA.unpack
+
+textTo :: IsString a => Text -> a
+textTo = fromString . T.unpack
+
+toB16 :: ByteString -> Text
+toB16 = B16.encodeBase16
+
+fromB16 :: Text -> Either Text ByteString
+fromB16 txt = B16.decodeBase16 $ T.encodeUtf8 txt
+
+readNatural :: String -> Maybe Natural
+readNatural = readMaybe
+
+fileOrStdin :: FilePath -> IO Handle
+fileOrStdin fp =
+  case fp of
+    "-" -> pure stdin
+    _ -> openFile fp ReadMode

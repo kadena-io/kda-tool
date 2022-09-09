@@ -16,12 +16,15 @@ library
   -- other-modules:
   exposed-modules:
     AppMain
+    Commands.Keygen
     Commands.Local
     Commands.Poll
     Commands.Send
+    Keys
     Logger
     Types.Env
     Types.HostPort
+    Types.KeyType
     Types.Node
     Utils
 

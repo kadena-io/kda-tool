@@ -54,7 +54,7 @@ hpkgs.developPackage {
     kadena-signing-api = doJailbreak super.kadena-signing-api;
     katip = dontCheck super.katip;
 
-    pact = dontCheck (appendConfigureFlag super.pact "-f-build-tool");
+    pact = dontCheck (appendConfigureFlag super.pact "-f+cryptonite-ed25519 -f-build-tool");
 
     pact-time = dontCheck (self.callHackageDirect {
       pkg = "pact-time";

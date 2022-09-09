@@ -11,9 +11,10 @@ module Types.Env where
 ------------------------------------------------------------------------------
 -- import           Control.Concurrent
 -- import           Control.Exception
-import           Control.Lens
+import           Control.Lens (makeClassy)
 import           Control.Monad.Reader
 import           Data.Aeson
+import           Data.Bifunctor
 -- import           Data.ByteString (ByteString)
 import           Data.Default
 import           Data.Text (Text)
@@ -24,6 +25,7 @@ import           Options.Applicative
 import           System.Random.MWC
 ------------------------------------------------------------------------------
 import           Types.HostPort
+import           Types.KeyType
 ------------------------------------------------------------------------------
 
 data ConfigData = ConfigData
@@ -71,6 +73,7 @@ nodeCmdP = NodeCmdArgs
 data Command
   = Batch [FilePath]
   | Quicksign
+  | Keygen KeyType
   | Local NodeCmdArgs
   | Poll NodeCmdArgs
   | Send NodeCmdArgs
@@ -94,14 +97,25 @@ envP = Args
 fileArg :: Parser FilePath
 fileArg = strArgument (metavar "FILE")
 
+keyTypeP :: Parser KeyType
+keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
+  [ completeWith (map rdr [minBound..maxBound])
+  , help "Key type (plain or hd)"
+  , metavar "KEY_TYPE"
+  ]
+  where
+    rdr = T.unpack . keyTypeToText
+
 commands :: Parser Command
 commands = hsubparser
-  (  command "batch" (info (Batch <$> many fileArg)
-       (progDesc "Batch multiple command files into a group"))
-  <> command "local" (info (Local <$> nodeCmdP)
+  (  command "local" (info (Local <$> nodeCmdP)
        (progDesc "Test commands locally with a node's /local endpoint"))
   <> command "poll" (info (Poll <$> nodeCmdP)
        (progDesc "Poll command results with a node's /poll endpoint"))
   <> command "send" (info (Send <$> nodeCmdP)
        (progDesc "Send commands to a node's /send endpoint"))
+  <> command "keygen" (info (Keygen <$> keyTypeP)
+       (progDesc "Generate keys to sign Kadena transactions"))
+--  <> command "batch" (info (Batch <$> many fileArg)
+--       (progDesc "Batch multiple command files into a group"))
   )

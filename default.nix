@@ -61,6 +61,7 @@ hpkgs.developPackage {
 
     HsYAML = dontCheck super.HsYAML;
     HsYAML-aeson = dontCheck super.HsYAML-aeson;
+    aeson = dontCheck super.aeson;
     base16 = doJailbreak (dontCheck super.base16);
     chainweb-api = doJailbreak (dontCheck super.chainweb-api);
     cryptonite = dontCheck (appendConfigureFlag super.cryptonite "-fsupport_pclmuldq");
@@ -71,7 +72,7 @@ hpkgs.developPackage {
 
     pact = dontCheck (appendConfigureFlag super.pact "-fcryptonite-ed25519 -f-build-tool -fno-advice");
     prettyprinter = dontCheck super.prettyprinter;
-    aeson = dontCheck super.aeson;
+    rebase = doJailbreak super.rebase;
   };
 
   source-overrides = {

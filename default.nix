@@ -1,6 +1,6 @@
-{ compiler ? "ghc881"
-, rev      ? "c4f97342ba8ac84def72328616dd05d005bb4715"
-, sha256   ? "1p2gbisib2jrz4r9b5vzfvmirgmz9sr2ksalngaw908vvg9hsvai"
+{ compiler ? "ghc8107"
+, rev      ? "7a94fcdda304d143f9a40006c033d7e190311b54"
+, sha256   ? "0d643wp3l77hv2pmg2fi7vyxn4rwy0iyr8djcw1h5x72315ck9ik"
 , pkgs     ?
     import (builtins.fetchTarball {
       url    = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
@@ -8,12 +8,14 @@
       config.allowBroken = false;
       config.allowUnfree = true;
     }
+, returnShellEnv ? false
+, mkDerivation ? null
 }:
 let gitignoreSrc = import (pkgs.fetchFromGitHub {
       owner = "hercules-ci";
       repo = "gitignore";
-      rev = "2ced4519f865341adcb143c5d668f955a2cb997f";
-      sha256 = "0fc5bgv9syfcblp23y05kkfnpgh3gssz6vn24frs8dzw39algk2z";
+      rev = "9e80c4d83026fa6548bc53b1a6fab8549a6991f6";
+      sha256 = "04n9chlpbifgc5pa3zx6ff3rji9am6msrbn1z3x1iinjz2xjfp4p";
     }) {};
     hpkgs = pkgs.haskell.packages.${compiler};
 
@@ -27,32 +29,6 @@ hpkgs.developPackage {
 
   overrides = self: super: with pkgs.haskell.lib;
   {
-    HsYAML = dontCheck super.HsYAML;
-    HsYAML-aeson = dontCheck super.HsYAML-aeson;
-
-    # Don't run a package's test suite
-    # beam-postgres = dontCheck super.beam-postgres;
-
-    # Get a specific hackage version straight from hackage. Unlike the above
-    # callHackage approach, this will always succeed if the version is on
-    # hackage. The downside is that you have to specify the hash manually.
-    mwc-random = self.callHackageDirect {
-      pkg = "mwc-random";
-      ver = "0.14.0.0";
-      sha256 = "10jaajbnlcwqgqdnb94q0k8pzx11ff569af8a8d6k26xc954m48p";
-    } {};
-    
-    base16 = dontCheck (self.callHackageDirect {
-      pkg = "base16";
-      ver = "0.3.1.0";
-      sha256 = "07p2cxpsklxi11v84d16gnbdf4z4qi6xxa0k6nl7bpxc4rzi2v38";
-    } {});
-
-    base64 = dontCheck (self.callHackageDirect {
-      pkg = "base64";
-      ver = "0.4.2.3";
-      sha256 = "1i4cf1xfbkxlxshwlsxgw2w5gi3hkkfm1n99vnzq7rixz8nxcw7r";
-    } {});
 
     direct-sqlite = dontCheck (self.callHackageDirect {
       pkg = "direct-sqlite";
@@ -60,80 +36,61 @@ hpkgs.developPackage {
       sha256 = "0w8wj3210h08qlws40qhidkscgsil3635zk83kdlj929rbd8khip";
     } {});
 
+    kadena-signing-api = doJailbreak super.kadena-signing-api;
     katip = dontCheck super.katip;
 
-    libBF = doJailbreak (dontCheck (self.callHackageDirect {
-      pkg = "libBF";
-      ver = "0.6.3";
-      sha256 = "0j0i39jb389rnrkkw2xqz10471afxys79nf31hhlqr4fk6ddhjf7";
-    } {}));
-
-    megaparsec = dontCheck (self.callHackageDirect {
-      pkg = "megaparsec";
-      ver = "9.0.0";
-      sha256 = "03kqcfpsmi5l4mr6lsmlpks2mp9prf9yy97mmrkclwqpxybdjx2l";
+    prettyprinter-ansi-terminal = dontCheck (self.callHackageDirect {
+      pkg = "prettyprinter-ansi-terminal";
+      ver = "1.1.2";
+      sha256 = "0lwcqndppw3jc55rlnn6sp76zmjx2yzl21g9jhg27k2rdnjwd7md";
     } {});
 
-    # neat-interpolation >= 0.4 breaks Chainweb genesis blocks!
-    neat-interpolation = dontCheck (self.callHackageDirect {
-      pkg = "neat-interpolation";
-      ver = "0.5.1.2";
-      sha256 = "0lcgjxw690hyswqxaghf7z08mx5694l7kijyrsjd42yxswajlplx";
-    } {});
+    HsYAML = dontCheck super.HsYAML;
+    HsYAML-aeson = dontCheck super.HsYAML-aeson;
+    aeson = dontCheck super.aeson;
+    base16 = doJailbreak (dontCheck super.base16);
+    chainweb-api = doJailbreak (dontCheck super.chainweb-api);
+    cryptonite = dontCheck (appendConfigureFlag super.cryptonite "-fsupport_pclmuldq");
+    hashable = doJailbreak super.hashable;
 
-    pact = dontCheck super.pact;
+    # These tests pull in unnecessary dependencies
+    http2 = dontCheck super.http2;
 
-    pact-time = dontCheck (self.callHackageDirect {
-      pkg = "pact-time";
-      ver = "0.2.0.0";
-      sha256 = "1cfn74j6dr4279bil9k0n1wff074sdlz6g1haqyyy38wm5mdd7mr";
-    } {});
-
-    # prettyprinter > 1.6.0 breaks binary compatibility of Pact payloads
-    # inside Chainweb blocks!
-    prettyprinter = dontCheck (self.callHackageDirect {
-      pkg = "prettyprinter";
-      ver = "1.6.0";
-      sha256 = "0f8wqaj3cv3yra938afqf62wrvq20yv9jd048miw5zrfavw824aa";
-    } {});
-
-    sbv = dontCheck (self.callHackageDirect {
-      pkg = "sbv";
-      ver = "9.0";
-      sha256 = "14g2qax1vc7q4g78fa562dviqvcd0l52kd5jmgv90g3g3ci15bnl";
-    } {});
-
-    # comment from pact...
-    # sbv requires this even though it is not used in the build (and the hash is invalid)
-    tasty-bench = dontCheck (self.callHackageDirect {
-      pkg = "tasty-bench";
-      ver = "0.3.1";
-      sha256 = "0000000000000000000000000000000000000000000000000000";
-    } {});
-
-    unordered-containers = dontCheck (self.callHackageDirect {
-      pkg = "unordered-containers";
-      ver = "0.2.15.0";
-      sha256 = "101fjg7jsa0mw57clpjwc2vgrdkrnn0vmf4xgagja21ynwwbl2b5";
-    } {});
-
-    # To discover more functions that can be used to modify haskell
-    # packages, run "nix-repl", type "pkgs.haskell.lib.", then hit
-    # <TAB> to get a tab-completed list of functions.
+    pact = dontCheck (appendConfigureFlag super.pact "-fcryptonite-ed25519 -f-build-tool -fno-advice");
+    prettyprinter = dontCheck super.prettyprinter;
+    rebase = doJailbreak super.rebase;
   };
 
   source-overrides = {
     HsYAML = nix-thunk.thunkSource ./deps/HsYAML;
     HsYAML-aeson = nix-thunk.thunkSource ./deps/HsYAML-aeson;
+    cardano-crypto = nix-thunk.thunkSource ./deps/cardano-crypto;
     chainweb-api = thunkSource ./deps/chainweb-api;
     pact = thunkSource ./deps/pact;
     kadena-signing-api = (thunkSource ./deps/signing-api) + "/kadena-signing-api";
+
+    OneTuple                    = "0.3";
+    aeson                       = "1.5.6.0";
+    ansi-terminal               = "0.11.3";
+    prettyprinter-ansi-terminal = "1.1.2";
+    time-compat                 = "1.9.5";
+    trifecta                    = "2.1.1";
+    unordered-containers        = "0.2.15.0";
+
+    # These are required in order to not break payload validation
+    base16-bytestring = "0.1.1.7";
+    prettyprinter     = "1.6.0";
+    hashable          = "1.3.0.0";
+    base64-bytestring = "1.0.0.3";
   };
 
   modifier = drv: pkgs.haskell.lib.overrideCabal drv (attrs: {
     buildTools = (attrs.buildTools or []) ++ [
+      pkgs.zlib
       hpkgs.cabal-install
       hpkgs.ghcid
     ];
   });
+
+  inherit returnShellEnv;
 }

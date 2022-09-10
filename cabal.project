@@ -1,0 +1,27 @@
+packages: kda-tool.cabal
+
+package pact
+    ghc-options: -Wwarn
+    -- avoid conflict with cryptonite during linking
+    flags: +cryptonite-ed25519 -build-tool +no-advice
+
+source-repository-package
+    type: git
+    location: https://github.com/kadena-io/cardano-crypto.git
+    tag: 4590efa638397e952a51a8994b5543e4ea3c1ecd
+
+source-repository-package
+    type: git
+    location: https://github.com/kadena-io/chainweb-api.git
+    tag: b7fdbe35dbe4e7b818dc9650fdb950ea5eb7990f
+
+source-repository-package
+    type: git
+    location: https://github.com/kadena-io/pact.git
+    tag: 957b8bd7644cebc60d043b33f0d7ffc53c65d783
+
+source-repository-package
+    type: git
+    location: https://github.com/kadena-io/signing-api.git
+    tag: e393491baf28b8e028d091258313b334c5f0aa93
+    subdir: kadena-signing-api

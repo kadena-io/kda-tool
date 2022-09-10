@@ -73,7 +73,7 @@ mkReflexScribe
   -> Verbosity
   -> IO Scribe
 mkReflexScribe fireEvent colorize permitF verb = do
-    let logger i@Item{..} = do
+    let logger i = do
           let msg = LT.toLazyText $ shortFormat colorize verb i
           fireEvent $ LT.toStrict msg
     return $ Scribe logger (pure ()) permitF

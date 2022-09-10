@@ -20,8 +20,10 @@ library
     Commands.Local
     Commands.Poll
     Commands.Send
+    Commands.Sign
     Keys
     Logger
+    Types.Encoding
     Types.Env
     Types.HostPort
     Types.KeyType
@@ -37,6 +39,7 @@ library
     , attoparsec
     , base >= 4.13 && < 5
     , base16
+    , base64
     , bytestring
     , cardano-crypto
     , cassava

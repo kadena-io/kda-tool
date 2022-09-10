@@ -23,6 +23,7 @@ import           Commands.Keygen
 import           Commands.Local
 import           Commands.Poll
 import           Commands.Send
+import           Commands.Sign
 import           Types.Env
 ------------------------------------------------------------------------------
 
@@ -49,6 +50,7 @@ appMain = do
       Local args -> localCommand theEnv args
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
+      Sign args -> signCommand args
       _ -> putStrLn "Not implemented yet" >> exitWith (ExitFailure 1)
 
   where

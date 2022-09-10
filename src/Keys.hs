@@ -15,8 +15,9 @@ import qualified Crypto.Encoding.BIP39.English as Crypto
 import           Crypto.Error
 import qualified Crypto.PubKey.Ed25519 as ED25519
 import qualified Crypto.Random.Entropy
-import           Data.Aeson (Value(..))
+import           Data.Aeson
 import           Data.Aeson.Lens
+import           Data.Bifunctor
 import           Data.Bits ((.|.))
 import           Data.ByteArray (ByteArrayAccess)
 import qualified Data.ByteArray as BA
@@ -37,7 +38,6 @@ import           Text.Read (readMaybe)
 ------------------------------------------------------------------------------
 import           Utils
 ------------------------------------------------------------------------------
-
 
 mnemonicToRoot :: MnemonicPhrase -> Crypto.XPrv
 mnemonicToRoot phrase = seedToRoot (phraseToSeed phrase) "" -- TODO: Empty passowrd
@@ -75,6 +75,9 @@ mkMnemonicPhrase lst
 readPhraseFromFile :: FilePath -> IO (Maybe MnemonicPhrase)
 readPhraseFromFile keyfile = mkMnemonicPhrase . T.words . T.strip <$> T.readFile keyfile
 
+readPhraseFromHandle :: Handle -> IO (Maybe MnemonicPhrase)
+readPhraseFromHandle h = mkMnemonicPhrase . T.words . T.strip <$> T.hGetContents h
+
 -- TODO: Don't expose constructor; only create with 'mkKeyIndex'
 newtype KeyIndex = KeyIndex { unKeyIndex :: Natural }
   deriving (Eq, Ord, Show, Read, Num, Enum)
@@ -94,6 +97,13 @@ phraseToSeed (MnemonicPhrase lst) =
       Right phrase = Crypto.mnemonicPhrase @12 $ textTo <$> Map.elems phraseMap
       Right sentence = Crypto.mnemonicPhraseToMnemonicSentence Crypto.english phrase
   in sentenceToSeed sentence
+
+phraseToEitherSeed :: MnemonicPhrase -> Either String Crypto.Seed
+phraseToEitherSeed (MnemonicPhrase lst) = do
+  let phraseMap = wordsToPhraseMap lst
+  phrase <- first show $ Crypto.mnemonicPhrase @12 $ textTo <$> Map.elems phraseMap
+  sentence <- first show $ Crypto.mnemonicPhraseToMnemonicSentence Crypto.english phrase
+  pure $ sentenceToSeed sentence
 
 -- for generation
 sentenceToSeed :: Crypto.ValidMnemonicSentence mw => Crypto.MnemonicSentence mw -> Crypto.Seed
@@ -116,6 +126,39 @@ data KeyMaterial
   = RecoveryPhrase MnemonicPhrase KeyIndex
   | RawKeyPair ED25519.SecretKey ED25519.PublicKey
   deriving (Eq,Show)
+
+data KadenaKey
+  = HDRoot Crypto.XPrv
+  | PlainKeyPair ED25519.SecretKey ED25519.PublicKey
+
+data KeyPairYaml = KeyPairYaml
+  { kpyPublic :: Text
+  , kpySecret :: Text
+  } deriving (Eq,Ord,Show,Read)
+
+instance FromJSON KeyPairYaml where
+  parseJSON = withObject "KeyPairYaml" $ \o -> do
+    pubText <- o .: "public"
+    secText <- o .: "secret"
+    pure $ KeyPairYaml pubText secText
+
+readKadenaKey :: Handle -> IO (Either String KadenaKey)
+readKadenaKey h = do
+  t <- T.strip <$> T.hGetContents h
+  case YA.decode1Strict $ T.encodeUtf8 t of
+    Left _ -> do
+      case mkMnemonicPhrase $ T.words t of
+        Nothing -> pure $ Left "not a valid mnemonic phrase"
+        Just phrase -> do
+           case phraseToEitherSeed phrase of
+             Left _ -> pure $ Left "failed converting phrase to seed"
+             Right seed -> pure $ Right $ HDRoot $ seedToRoot seed ""
+    Right kpy -> do
+      let mres = do
+            pub <- maybeCryptoError . ED25519.publicKey =<< hush (fromB16 $ kpyPublic kpy)
+            sec <- maybeCryptoError . ED25519.secretKey =<< hush (fromB16 $ kpySecret kpy)
+            pure $ PlainKeyPair sec pub
+      pure $ note "not a valid ED25519 key pair" mres
 
 readKeyMaterial :: Handle -> Maybe KeyIndex -> IO (Maybe KeyMaterial)
 readKeyMaterial h mindex = do

@@ -11,6 +11,7 @@ import qualified Data.Attoparsec.ByteString.Char8 as A (endOfInput, parseOnly, s
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
 import           Data.Either
+import           Data.Maybe
 import           Data.Scientific
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -19,8 +20,14 @@ import qualified Data.Text.Lazy as LT
 import           Data.Text.Lazy.Builder
 import           Data.Text.Lazy.Builder.Scientific
 import           Data.Time
-import qualified Data.YAML.Aeson as Y
+import qualified Data.YAML as Y
+import qualified Data.YAML.Aeson as YA
+import qualified Data.YAML.Event as Y
+import qualified Data.YAML.Schema as Y
+import qualified Data.YAML.Token as Y
+import           Kadena.SigningTypes
 import           GHC.Generics
+import           Pact.Types.Command
 ------------------------------------------------------------------------------
 
 tshow :: Show a => a -> Text
@@ -77,7 +84,48 @@ parseAsJsonOrYaml :: FromJSON a => [LB.ByteString] -> Either [String] [a]
 parseAsJsonOrYaml bss =
   case partitionEithers $ A.eitherDecode <$> bss of
     ([],vs) -> Right $ concat $ map unMaybeBatch vs
-    (esJ,_) -> case partitionEithers $ Y.decode1Strict . LB.toStrict <$> bss of
+    (esJ,_) -> case partitionEithers $ YA.decode1Strict . LB.toStrict <$> bss of
       ([],vs) -> Right $ concat $ map unMaybeBatch vs
       (esY,_) -> Left (map show esJ ++ map show esY)
 
+niceQuoteEncodeYaml :: ToJSON a => a -> LB.ByteString
+niceQuoteEncodeYaml a = YA.encodeValue' senc Y.UTF8 [toJSON a]
+  where
+    encScalar s@(Y.SStr t) = case T.find (== '"') t of
+      Just _ -> Right (Y.untagged, Y.SingleQuoted, t)
+      Nothing -> Y.schemaEncoderScalar Y.coreSchemaEncoder s
+    encScalar s = Y.schemaEncoderScalar Y.coreSchemaEncoder s
+    senc = Y.setScalarStyle encScalar Y.coreSchemaEncoder
+
+-- | Saves a CommandSigData as JSON if it is fully signed or as YAML if more signatures are needed.
+saveCommandSigData
+  :: FilePath
+  -- ^ The filename without the extension (.yaml or .json gets added on
+  -- depending on whether the command is fully signed)
+  -> CommandSigData
+  -> IO FilePath
+saveCommandSigData fname csd = do
+  case filter (isNothing . snd) $ unSignatureList $ _csd_sigs csd of
+    [] -> do
+      case commandSigDataToCommand csd of
+        Left _ -> writeYaml fname csd
+        Right c -> writeJson fname c
+    _ -> writeYaml fname csd
+
+writeYaml :: FilePath -> CommandSigData -> IO FilePath
+writeYaml fname csd = do
+  let fp = fname <> ".yaml"
+  LB.writeFile fp $ niceQuoteEncodeYaml csd
+  pure fp
+
+writeJson :: FilePath -> Command Text -> IO FilePath
+writeJson fname c = do
+  let fp = fname <> ".json"
+  LB.writeFile fp $ encode c
+  pure fp
+
+hasYamlExtension :: FilePath -> Bool
+hasYamlExtension = T.isSuffixOf ".yaml" . T.pack
+
+countSigs :: CommandSigData -> Int
+countSigs = length . filter (isJust . snd) . unSignatureList . _csd_sigs

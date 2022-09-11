@@ -9,7 +9,7 @@
 module Types.Env where
 
 ------------------------------------------------------------------------------
-import           Control.Lens (makeClassy)
+import           Control.Lens (makeLenses)
 import           Control.Monad.Reader
 import           Data.Aeson hiding (Encoding)
 import           Data.Default
@@ -44,7 +44,7 @@ data Env = Env
   , _env_rand :: GenIO
   }
 
-makeClassy ''Env
+makeLenses ''Env
 
 --instance (MonadIO m, MonadReader Env m) => Katip m where
 --  getLogEnv = asks _env_logEnv
@@ -60,7 +60,6 @@ data SignArgs = SignArgs
   { _signArgs_keyFile :: FilePath
   , _signArgs_keyInd :: Maybe KeyIndex
   , _signArgs_files :: [FilePath]
-  , _signArgs_encoding :: Encoding
   } deriving (Eq,Ord,Show,Read)
 
 encodingOption :: Parser Encoding
@@ -84,7 +83,6 @@ signP = SignArgs
            help "File containing plain key pair or HD key recovery phrase to sign with")
     <*> optional keyIndexP
     <*> many (strArgument (help "File(s) containing command(s) to send"))
-    <*> encodingOption
 
 data NodeCmdArgs = NodeCmdArgs
   { _nodeCmdArgs_files :: [FilePath]
@@ -98,9 +96,10 @@ nodeCmdP = NodeCmdArgs
              (long "node" <> short 'n' <>
               help "Node hostname and optional port separated by a ':'")
 
-data Command
+data SubCommand
   = Batch [FilePath]
   | Quicksign
+  | CombineSigs [FilePath]
   | Keygen KeyType
   | ListKeys FilePath KeyIndex
   | Local NodeCmdArgs
@@ -110,7 +109,7 @@ data Command
   deriving (Eq,Ord,Show,Read)
 
 data Args = Args
-  { _args_command :: Command
+  { _args_command :: SubCommand
   , _args_severity :: Severity
   , _args_configFile :: Maybe FilePath
   }
@@ -136,7 +135,7 @@ keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
   where
     rdr = T.unpack . keyTypeToText
 
-listKeysP :: Parser Command
+listKeysP :: Parser SubCommand
 listKeysP = ListKeys <$> keyfileP <*> indP
   where
     keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
@@ -149,9 +148,11 @@ listKeysP = ListKeys <$> keyfileP <*> indP
       , metavar "KEY_INDEX"
       ]
 
-commands :: Parser Command
+commands :: Parser SubCommand
 commands = hsubparser
-  (  command "local" (info (Local <$> nodeCmdP)
+  (  command "combine-sigs" (info (CombineSigs <$> many fileArg)
+       (progDesc "Combine signatures from multiple files"))
+  <> command "local" (info (Local <$> nodeCmdP)
        (progDesc "Test commands locally with a node's /local endpoint"))
   <> command "poll" (info (Poll <$> nodeCmdP)
        (progDesc "Poll command results with a node's /poll endpoint"))

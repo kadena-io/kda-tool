@@ -19,6 +19,7 @@ import           System.IO
 import           System.Random.MWC
 import           Text.Printf
 ------------------------------------------------------------------------------
+import           Commands.CombineSigs
 import           Commands.Keygen
 import           Commands.ListKeys
 import           Commands.Local
@@ -47,6 +48,7 @@ appMain = do
     let theEnv = Env mgr le cd rand
     case c of
       --Batch files -> batchCommand files
+      CombineSigs files -> combineSigsCommand theEnv files
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args

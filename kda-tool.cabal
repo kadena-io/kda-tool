@@ -16,6 +16,7 @@ library
   -- other-modules:
   exposed-modules:
     AppMain
+    Commands.CombineSigs
     Commands.Keygen
     Commands.ListKeys
     Commands.Local

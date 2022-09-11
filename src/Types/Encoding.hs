@@ -22,6 +22,7 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.YAML.Aeson as YA
 import           Data.Word
+import           Kadena.SigningTypes
 import           System.IO
 ------------------------------------------------------------------------------
 
@@ -57,19 +58,24 @@ decodeYamlBS bs = do
   v :: Value <- first (T.pack . snd) $ YA.decode1Strict bs
   let mhash = hush . B64Url.decodeBase64 . encodeUtf8 =<< (v ^? key "hash" . _String)
       mcmd = encodeUtf8 <$> (v ^? key "cmd" . _String)
-      calcHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
   case (mhash, mcmd) of
     (Nothing, Nothing) -> Left "YAML must contain a key 'hash' and/or 'cmd'"
     (Just hash, Nothing) -> Right hash
-    (Nothing, Just cmd) -> Right $ calcHash cmd
+    (Nothing, Just cmd) -> Right $ calcCmdHash cmd
     (Just hash, Just cmd) ->
-      if calcHash cmd == hash
+      if calcCmdHash cmd == hash
         then Right hash
         else Left $ T.unlines
                [ "DANGER!!! The hash does not match the command!  Someone may be trying to get you to sign something malicious!"
                , "If you are sure you want to proceed you should delete either the hash or the cmd (almost certainly the hash) from your YAML."
                , "PROCEED WITH GREAT CAUTION!!!"
                ]
+
+calcCmdHash :: ByteString -> ByteString
+calcCmdHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
+
+calcCsdHash :: CommandSigData -> ByteString
+calcCsdHash = calcCmdHash . encodeUtf8 . _csd_cmd
 
 readAsEncoding :: Encoding -> Handle -> IO ByteString
 readAsEncoding enc h = do

@@ -67,18 +67,24 @@ encodingOption :: Parser Encoding
 encodingOption = option (maybeReader $ textToEncoding . T.pack)
                         (short 'e' <> long "encoding" <> value Yaml <> help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))")
 
+keyIndexP :: Parser KeyIndex
+keyIndexP = option keyIndexReader $ mconcat
+    [ long "index"
+    , short 'i'
+    , help "Index of the HD key to sign with"
+    , metavar "KEY_INDEX"
+    ]
+  where
+    keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
+
 signP :: Parser SignArgs
 signP = SignArgs
     <$> strOption
           (long "keyfile" <> short 'k' <>
            help "File containing plain key pair or HD key recovery phrase to sign with")
-    <*> optional (option keyIndexReader
-          (long "index" <> short 'i' <>
-           help "Index of the HD key to sign with"))
+    <*> optional keyIndexP
     <*> many (strArgument (help "File(s) containing command(s) to send"))
     <*> encodingOption
-  where
-    keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
 
 data NodeCmdArgs = NodeCmdArgs
   { _nodeCmdArgs_files :: [FilePath]
@@ -96,6 +102,7 @@ data Command
   = Batch [FilePath]
   | Quicksign
   | Keygen KeyType
+  | ListKeys FilePath KeyIndex
   | Local NodeCmdArgs
   | Poll NodeCmdArgs
   | Send NodeCmdArgs
@@ -129,6 +136,19 @@ keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
   where
     rdr = T.unpack . keyTypeToText
 
+listKeysP :: Parser Command
+listKeysP = ListKeys <$> keyfileP <*> indP
+  where
+    keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
+    keyfileP = strArgument $ mconcat
+      [ help "HD key file"
+      , metavar "KEY_FILE"
+      ]
+    indP = argument keyIndexReader $ mconcat
+      [ help "Maximum key index"
+      , metavar "KEY_INDEX"
+      ]
+
 commands :: Parser Command
 commands = hsubparser
   (  command "local" (info (Local <$> nodeCmdP)
@@ -141,6 +161,8 @@ commands = hsubparser
        (progDesc "Sign transactions"))
   <> command "keygen" (info (Keygen <$> keyTypeP)
        (progDesc "Generate keys / recovery phrases and print them to stdout"))
+  <> command "list-keys" (info listKeysP
+       (progDesc "List the public keys for an HD key recovery phrase"))
 --  <> command "batch" (info (Batch <$> many fileArg)
 --       (progDesc "Batch multiple command files into a group"))
   )

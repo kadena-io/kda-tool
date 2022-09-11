@@ -20,6 +20,7 @@ import           System.Random.MWC
 import           Text.Printf
 ------------------------------------------------------------------------------
 import           Commands.Keygen
+import           Commands.ListKeys
 import           Commands.Local
 import           Commands.Poll
 import           Commands.Send
@@ -47,6 +48,7 @@ appMain = do
     case c of
       --Batch files -> batchCommand files
       Keygen keyType -> keygenCommand keyType
+      ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args

@@ -17,6 +17,7 @@ library
   exposed-modules:
     AppMain
     Commands.Keygen
+    Commands.ListKeys
     Commands.Local
     Commands.Poll
     Commands.Send

@@ -130,7 +130,8 @@ addSig pub sig (SignatureList sigs) = SignatureList $ go sigs
     go (pair@(k,_):ps) = if k == pub then (k, Just sig) : go ps else pair : go ps
 
 signOther :: FilePath -> Encoding -> IO ()
-signOther msgFile enc = do
+--signOther msgFile enc = do
+signOther _ _ = do
   putStrLn "Not implemented yet"
 --  rawbs <- readAsEncoding enc mh
 --  let ebs = genericDecode enc rawbs

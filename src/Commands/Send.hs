@@ -31,18 +31,21 @@ import           Utils
 
 sendCommand :: Env -> NodeCmdArgs -> IO ()
 sendCommand e args = do
-  logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
-  bss <- mapM LB.readFile $ _nodeCmdArgs_files args
-  res <- runExceptT $ do
-    txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
-    n <- ExceptT $ getNode (_nodeCmdArgs_node args)
-    let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
-    logEnv e DebugS $ fromStr $ printf "Sending %d commands to %d chains\n" (length txs) (length groups)
-    responses <- lift $ mapM (sendToNode n) groups
-    lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
-  case res of
-    Left er -> putStrLn er >> exitFailure
-    Right () -> pure ()
+  case _nodeCmdArgs_files args of
+    [] -> putStrLn "No tx files specified"
+    fs -> do
+      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
+      bss <- mapM LB.readFile fs
+      res <- runExceptT $ do
+        txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
+        n <- ExceptT $ getNode (_nodeCmdArgs_node args)
+        let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
+        logEnv e DebugS $ fromStr $ printf "Sending %d commands to %d chains\n" (length txs) (length groups)
+        responses <- lift $ mapM (sendToNode n) groups
+        lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
+      case res of
+        Left er -> putStrLn er >> exitFailure
+        Right () -> pure ()
 
 txChain :: Transaction -> ChainId
 txChain = _chainwebMeta_chainId . _pactCommand_meta . _transaction_cmd

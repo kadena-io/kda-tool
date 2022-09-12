@@ -24,14 +24,17 @@ import           Utils
 
 localCommand :: Env -> NodeCmdArgs -> IO ()
 localCommand e args = do
-  logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
-  bss <- mapM LB.readFile $ _nodeCmdArgs_files args
-  res <- runExceptT $ do
-    txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
-    n <- ExceptT $ getNode (_nodeCmdArgs_node args)
-    logEnv e DebugS $ fromStr $ printf "Testing %d commands locally\n" (length txs)
-    responses <- lift $ mapM (localNodeQuery n) txs
-    lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
-  case res of
-    Left er -> putStrLn er >> exitFailure
-    Right () -> pure ()
+  case _nodeCmdArgs_files args of
+    [] -> putStrLn "No tx files specified"
+    fs -> do
+      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
+      bss <- mapM LB.readFile fs
+      res <- runExceptT $ do
+        txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
+        n <- ExceptT $ getNode (_nodeCmdArgs_node args)
+        logEnv e DebugS $ fromStr $ printf "Testing %d commands locally\n" (length txs)
+        responses <- lift $ mapM (localNodeQuery n) txs
+        lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
+      case res of
+        Left er -> putStrLn er >> exitFailure
+        Right () -> pure ()

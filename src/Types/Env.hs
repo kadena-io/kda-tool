@@ -18,6 +18,7 @@ import qualified Data.Text as T
 import           Katip
 import           Network.HTTP.Client (Manager)
 import           Options.Applicative
+import           Options.Applicative.Help.Pretty
 import           System.Random.MWC
 ------------------------------------------------------------------------------
 import           Keys
@@ -114,16 +115,71 @@ nodeP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
 nodeCmdP :: Parser NodeCmdArgs
 nodeCmdP = NodeCmdArgs <$> many txFileP <*> nodeP
 
+data Holes = Holes
+  deriving (Eq,Ord,Show,Read)
+
+data GenTxArgs = GenTxArgs
+  { _genTxArgs_templateFile :: FilePath
+  , _genTxArgs_operation :: Either Holes GenData
+  } deriving (Eq,Ord,Show,Read)
+
+data GenData = GenData
+  { _genData_dataFile :: Maybe FilePath
+  , _genData_outFilePat :: Maybe FilePath
+  } deriving (Eq,Ord,Show,Read)
+
+genDataP :: Parser GenData
+genDataP = GenData <$> optional dataFileP <*> optional filePatP
+
+holesP :: Parser (Either Holes GenData)
+holesP = flag' (Left Holes) $ mconcat
+  [ long "holes"
+  , help "Display the holes to be filled in a template"
+  ]
+
+templateFileP :: Parser FilePath
+templateFileP = strArgument $ mconcat
+  [ help "YAML file with a mustache transaction template"
+  , metavar "TEMPLATE_FILE"
+  --, long "template"
+  --, short 't'
+  ]
+
+filePatP :: Parser FilePath
+filePatP = strOption $ mconcat
+  [ long "out-file"
+  , short 'o'
+  , metavar "OUT_PAT"
+  --, help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")"
+  , helpDoc $ Just $ mconcat
+    [ text "Pattern to use for output filenames"
+    , hardline
+    , text "(example: \"tx-{{chain}}.yaml\")"
+    ]
+  ]
+
+dataFileP :: Parser FilePath
+dataFileP = strOption $ mconcat
+  [ long "data"
+  , short 'd'
+  , help "YAML data file for filling the tx template"
+  , metavar "DATA_FILE"
+  ]
+
+genTxArgsP :: Parser GenTxArgs
+genTxArgsP = GenTxArgs <$> templateFileP <*> (holesP <|> fmap Right genDataP)
+
 data SubCommand
-  = Batch [FilePath]
-  | Quicksign
-  | CombineSigs [FilePath]
+  = CombineSigs [FilePath]
+  | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys FilePath KeyIndex
   | Local NodeCmdArgs
   | Poll NodeCmdArgs
   | Send NodeCmdArgs
   | Sign SignArgs
+--  | Batch [FilePath]
+--  | Quicksign
   deriving (Eq,Ord,Show,Read)
 
 data Args = Args
@@ -169,21 +225,48 @@ listKeysP = ListKeys <$> hdKeyFileP <*> indP
       ]
 
 commands :: Parser SubCommand
-commands = hsubparser
-  (  command "combine-sigs" (info (CombineSigs <$> many txFileP)
-       (progDesc "Combine signatures from multiple files"))
-  <> command "local" (info (Local <$> nodeCmdP)
-       (progDesc "Test commands locally with a node's /local endpoint"))
-  <> command "poll" (info (Poll <$> nodeCmdP)
-       (progDesc "Poll command results with a node's /poll endpoint"))
-  <> command "send" (info (Send <$> nodeCmdP)
-       (progDesc "Send commands to a node's /send endpoint"))
-  <> command "sign" (info (Sign <$> signP)
-       (progDesc "Sign transactions"))
-  <> command "keygen" (info (Keygen <$> keyTypeP)
-       (progDesc "Generate keys / recovery phrases and print them to stdout"))
-  <> command "list-keys" (info listKeysP
-       (progDesc "List the public keys for an HD key recovery phrase"))
---  <> command "batch" (info (Batch <$> many fileArg)
---       (progDesc "Batch multiple command files into a group"))
-  )
+commands =
+  hsubparser templateCommands <|>
+  hsubparser signingCommands <|>
+  hsubparser nodeCommands <|>
+  hsubparser keyCommands
+
+
+templateCommands :: Mod CommandFields SubCommand
+templateCommands = mconcat
+  [ command "gen" (info (GenTx <$> genTxArgsP)
+      (progDesc "Generate transactions from a template"))
+  , commandGroup "Transaction Templating Commands"
+  ]
+
+signingCommands :: Mod CommandFields SubCommand
+signingCommands = mconcat
+  [ command "combine-sigs" (info (CombineSigs <$> many txFileP)
+      (progDesc "Combine signatures from multiple files"))
+  , command "sign" (info (Sign <$> signP)
+      (progDesc "Sign transactions"))
+  , commandGroup "Transaction Signing Commands"
+  , hidden
+  ]
+
+nodeCommands :: Mod CommandFields SubCommand
+nodeCommands = mconcat
+  [ command "local" (info (Local <$> nodeCmdP)
+      (progDesc "Test commands locally with a node's /local endpoint"))
+  , command "poll" (info (Poll <$> nodeCmdP)
+      (progDesc "Poll command results with a node's /poll endpoint"))
+  , command "send" (info (Send <$> nodeCmdP)
+      (progDesc "Send commands to a node's /send endpoint"))
+  , commandGroup "Node Interaction Commands"
+  , hidden
+  ]
+
+keyCommands :: Mod CommandFields SubCommand
+keyCommands = mconcat
+  [ command "keygen" (info (Keygen <$> keyTypeP)
+      (progDesc "Generate a key / recovery phrase and print to stdout"))
+  , command "list-keys" (info listKeysP
+      (progDesc "List the public keys for an HD key recovery phrase"))
+  , commandGroup "Key Generation Commands"
+  , hidden
+  ]

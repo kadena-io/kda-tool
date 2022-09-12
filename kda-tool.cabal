@@ -17,6 +17,7 @@ library
   exposed-modules:
     AppMain
     Commands.CombineSigs
+    Commands.GenTx
     Commands.Keygen
     Commands.ListKeys
     Commands.Local
@@ -25,6 +26,7 @@ library
     Commands.Sign
     Keys
     Logger
+    TxTemplate
     Types.Encoding
     Types.Env
     Types.HostPort
@@ -64,6 +66,7 @@ library
     , lens-aeson
     , memory
     , mtl
+    , mustache
     , mwc-random
     , network-uri
     , optparse-applicative

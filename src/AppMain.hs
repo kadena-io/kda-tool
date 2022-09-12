@@ -16,12 +16,14 @@ import           System.IO
 import           System.Random.MWC
 ------------------------------------------------------------------------------
 import           Commands.CombineSigs
+import           Commands.GenTx
 import           Commands.Keygen
 import           Commands.ListKeys
 import           Commands.Local
 import           Commands.Poll
 import           Commands.Send
 import           Commands.Sign
+import           Options.Applicative.Help.Pretty
 import           Types.Env
 ------------------------------------------------------------------------------
 
@@ -41,17 +43,25 @@ appMain = do
     case c of
       --Batch files -> batchCommand files
       CombineSigs files -> combineSigsCommand theEnv files
+      GenTx args -> genTxCommand args
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args
-      _ -> putStrLn "Not implemented yet" >> exitWith (ExitFailure 1)
 
   where
-    opts = info (envP <**> helper)
-      (fullDesc <> header "myapp - Haskell command line app template")
+    opts = info (envP <**> helper) $ mconcat
+      [ fullDesc
+      , header "kda - Command line tool for interacting with the Kadena blockchain"
+      , footerDoc (Just theFooter)
+      ]
+    theFooter = string $ unlines
+      [ "Run the following command to enable tab completion:"
+      , ""
+      , "source <(kda --bash-completion-script `which kda`)"
+      ]
 
 fireNothing :: a -> IO ()
 fireNothing _ = pure ()

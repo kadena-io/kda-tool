@@ -40,7 +40,7 @@ instance FromJSON ConfigData where
 data Env = Env
   { _env_httpManager :: Manager
   , _env_logEnv :: LogEnv
-  , _env_configData :: ConfigData
+--  , _env_configData :: ConfigData
   , _env_rand :: GenIO
   }
 
@@ -63,8 +63,13 @@ data SignArgs = SignArgs
   } deriving (Eq,Ord,Show,Read)
 
 encodingOption :: Parser Encoding
-encodingOption = option (maybeReader $ textToEncoding . T.pack)
-                        (short 'e' <> long "encoding" <> value Yaml <> help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))")
+encodingOption = option (maybeReader $ textToEncoding . T.pack) $ mconcat
+  [ short 'e'
+  , long "encoding"
+  , value Yaml
+  , metavar "ENCODING"
+  , help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))"
+  ]
 
 keyIndexP :: Parser KeyIndex
 keyIndexP = option keyIndexReader $ mconcat
@@ -76,25 +81,38 @@ keyIndexP = option keyIndexReader $ mconcat
   where
     keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
 
+txFileP :: Parser FilePath
+txFileP = strArgument $ mconcat
+  [ help "YAML file(s) containing transactions"
+  , metavar "TX_FILE"
+  ]
+
+keyFileP :: Parser FilePath
+keyFileP = strOption $ mconcat
+  [ long "keyfile"
+  , short 'k'
+  , metavar "KEY_FILE"
+  , help "File containing plain key pair or HD key recovery phrase to sign with"
+  ]
+
 signP :: Parser SignArgs
-signP = SignArgs
-    <$> strOption
-          (long "keyfile" <> short 'k' <>
-           help "File containing plain key pair or HD key recovery phrase to sign with")
-    <*> optional keyIndexP
-    <*> many (strArgument (help "File(s) containing command(s) to send"))
+signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP
 
 data NodeCmdArgs = NodeCmdArgs
   { _nodeCmdArgs_files :: [FilePath]
   , _nodeCmdArgs_node :: HostPort
   } deriving (Eq,Ord,Show,Read)
 
+nodeP :: Parser HostPort
+nodeP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
+  [ long "node"
+  , short 'n'
+  , metavar "NODE"
+  , help "Node hostname and optional port separated by a ':'"
+  ]
+
 nodeCmdP :: Parser NodeCmdArgs
-nodeCmdP = NodeCmdArgs
-  <$> many (strArgument (help "File(s) containing command(s) to send"))
-  <*> option (eitherReader (hostPortFromText . T.pack))
-             (long "node" <> short 'n' <>
-              help "Node hostname and optional port separated by a ':'")
+nodeCmdP = NodeCmdArgs <$> many txFileP <*> nodeP
 
 data SubCommand
   = Batch [FilePath]
@@ -111,20 +129,22 @@ data SubCommand
 data Args = Args
   { _args_command :: SubCommand
   , _args_severity :: Severity
-  , _args_configFile :: Maybe FilePath
   }
 
 fromStr :: String -> LogStr
 fromStr = logStr
 
-envP :: Parser Args
-envP = Args
-  <$> commands
-  <*> option (maybeReader (textToSeverity . T.pack)) (long "log-level" <> value InfoS <> help "Minimum severity to log")
-  <*> optional (strOption (long "config" <> short 'c' <> help "Path of config file"))
+logLevelP :: Parser Severity
+logLevelP = option (maybeReader (textToSeverity . T.pack)) $ mconcat
+  [ long "log-level"
+  , value InfoS
+  , metavar "LOG_LEVEL"
+  , help "Minimum severity to log"
+  , completeWith (map (T.unpack . renderSeverity) [minBound..maxBound])
+  ]
 
-fileArg :: Parser FilePath
-fileArg = strArgument (metavar "FILE")
+envP :: Parser Args
+envP = Args <$> commands <*> logLevelP
 
 keyTypeP :: Parser KeyType
 keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
@@ -136,10 +156,10 @@ keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
     rdr = T.unpack . keyTypeToText
 
 listKeysP :: Parser SubCommand
-listKeysP = ListKeys <$> keyfileP <*> indP
+listKeysP = ListKeys <$> hdKeyFileP <*> indP
   where
     keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
-    keyfileP = strArgument $ mconcat
+    hdKeyFileP = strArgument $ mconcat
       [ help "HD key file"
       , metavar "KEY_FILE"
       ]
@@ -150,7 +170,7 @@ listKeysP = ListKeys <$> keyfileP <*> indP
 
 commands :: Parser SubCommand
 commands = hsubparser
-  (  command "combine-sigs" (info (CombineSigs <$> many fileArg)
+  (  command "combine-sigs" (info (CombineSigs <$> many txFileP)
        (progDesc "Combine signatures from multiple files"))
   <> command "local" (info (Local <$> nodeCmdP)
        (progDesc "Test commands locally with a node's /local endpoint"))

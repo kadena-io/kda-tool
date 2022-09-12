@@ -7,9 +7,6 @@ module AppMain where
 
 ------------------------------------------------------------------------------
 import           Control.Monad.IO.Class
-import qualified Data.Aeson as A
-import           Data.Default
-import           Data.Maybe
 import           Katip
 import           Network.HTTP.Client hiding (withConnection)
 import           Network.HTTP.Client.TLS
@@ -17,7 +14,6 @@ import           Options.Applicative
 import           System.Exit
 import           System.IO
 import           System.Random.MWC
-import           Text.Printf
 ------------------------------------------------------------------------------
 import           Commands.CombineSigs
 import           Commands.Keygen
@@ -31,7 +27,7 @@ import           Types.Env
 
 appMain :: IO ()
 appMain = do
-    Args c sev configFile <- execParser opts
+    Args c sev <- execParser opts
     let verbosity = V2
     mgr <- newManager tlsManagerSettings
 
@@ -40,12 +36,8 @@ appMain = do
       =<< initLogEnv "myapp" "production"
 
     logLE le DebugS $ logStr $ "Logging with severity " <> show sev
-    ecd <- maybe (pure $ Right def) A.eitherDecodeFileStrict' configFile
-    cd <- case ecd of
-      Left e -> error (printf "Error parsing %s\n%s" (fromJust configFile) e)
-      Right cd -> pure cd
     rand <- createSystemRandom
-    let theEnv = Env mgr le cd rand
+    let theEnv = Env mgr le rand
     case c of
       --Batch files -> batchCommand files
       CombineSigs files -> combineSigsCommand theEnv files

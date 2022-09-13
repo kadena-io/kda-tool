@@ -5,39 +5,23 @@ module Commands.GenTx
   ) where
 
 ------------------------------------------------------------------------------
-import           Chainweb.Api.ChainId
-import           Chainweb.Api.ChainwebMeta
-import           Chainweb.Api.PactCommand
-import           Chainweb.Api.Transaction
 import           Control.Error
-import           Control.Monad
 import           Control.Monad.Trans
 import           Data.Aeson
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
-import           Data.Function
-import           Data.List
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import           Data.Maybe
-import           Data.Ord
 import qualified Data.Set as S
-import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text.IO as T
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import qualified Data.Text.IO as T
 import qualified Data.YAML.Aeson as Y
-import           Katip
-import           System.Exit
 import           System.IO
 import           Text.Printf
 ------------------------------------------------------------------------------
 import           TxTemplate
 import           Types.Env
-import           Types.Node
-import           Utils
 ------------------------------------------------------------------------------
 
 genTxCommand :: GenTxArgs -> IO ()
@@ -64,13 +48,13 @@ genTxCommand args = do
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)
-        let pairs = zip fps cmds
-        lift $ mapM_ (\(fp,cmd) -> T.writeFile (T.unpack fp) cmd) pairs
-        pure pairs
+        let ps = zip fps cmds
+        lift $ mapM_ (\(fp,cmd) -> T.writeFile (T.unpack fp) cmd) ps
+        pure ps
   case res of
     Left e -> error e
     Right [] -> pure ()
-    Right pairs -> putStrLn $ "Wrote commands to: " <> show (map fst pairs)
+    Right ps -> putStrLn $ "Wrote commands to: " <> show (map fst ps)
 
 defaultOutPat :: M.Map Text Value -> Text
 defaultOutPat m =
@@ -98,13 +82,3 @@ isArray _ = False
 isEmptyHole :: Maybe Value -> Bool
 isEmptyHole Nothing = True
 isEmptyHole (Just v) = v == Null
-
-holesCmd :: FilePath -> IO ()
-holesCmd fp = do
-  tplContents <- T.readFile fp
-  res <- runExceptT $ do
-    (_,vs) <- hoistEither $ parseAndGetVars tplContents
-    pure vs
-  case res of
-    Left e -> error e
-    Right holes -> mapM_ (\h -> T.putStrLn $ h <> ": null") holes

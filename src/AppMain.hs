@@ -11,7 +11,6 @@ import           Katip
 import           Network.HTTP.Client hiding (withConnection)
 import           Network.HTTP.Client.TLS
 import           Options.Applicative
-import           System.Exit
 import           System.IO
 import           System.Random.MWC
 ------------------------------------------------------------------------------

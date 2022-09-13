@@ -20,6 +20,7 @@ import           Commands.GenTx
 import           Commands.Keygen
 import           Commands.ListKeys
 import           Commands.Local
+import           Commands.Mempool
 import           Commands.Poll
 import           Commands.Send
 import           Commands.Sign
@@ -48,6 +49,7 @@ appMain = do
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args
+      Mempool hp net cid -> mempoolCommand hp net cid
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args

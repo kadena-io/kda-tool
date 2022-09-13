@@ -20,6 +20,7 @@ import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS
 import           Network.HTTP.Types.Header
 import           Network.HTTP.Types.Status
+import           Text.Printf
 ------------------------------------------------------------------------------
 import           Types.HostPort
 ------------------------------------------------------------------------------
@@ -85,14 +86,21 @@ nodeApiRoot n =
     hpText = hostPortToText (_node_server n)
     prefix = schemeText (_node_scheme n) <> hpText <> "/"
 
-nodePactRoot :: Node -> ChainId -> Text
-nodePactRoot n c =
+nodeChainRoot :: Node -> ChainId -> Text
+nodeChainRoot n c =
     case (_node_serverType n) of
       PactServer -> nodeApiRoot n
       ChainwebServer ->
         nodeApiRoot n <>
         "/chain/" <>
-        T.pack (show $ unChainId c) <>
+        T.pack (show $ unChainId c)
+
+nodePactRoot :: Node -> ChainId -> Text
+nodePactRoot n c =
+    case (_node_serverType n) of
+      PactServer -> nodeApiRoot n
+      ChainwebServer ->
+        nodeChainRoot n c <>
         "/pact/api/v1"
 
 nodeGetCut :: Node -> IO (Response LB.ByteString)
@@ -107,6 +115,21 @@ nodeGetCut n = do
   where
     url = T.unpack root <> "/cut"
     root = nodeApiRoot n
+
+-- | This has to take a HostPort instead of a Node because you might want to
+-- query the mempool on nodes that don't expose the service API which has the
+-- /info endpoint that is needed to construct a 'Node'.
+mempoolPending :: HostPort -> Text -> ChainId -> IO (Response LB.ByteString)
+mempoolPending hp network c = do
+    req0 <- parseRequest url
+    let req = req0
+          { method = "POST"
+          , requestHeaders = [(hContentType, "application/json")]
+          }
+    mgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
+    httpLbs req mgr
+  where
+    url = printf "https://%s/chainweb/0.0/%s/chain/%d/mempool/getPending" (hostPortToText hp) network (unChainId c)
 
 pollNode :: Node -> ChainId -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
 pollNode n cid rks = do

@@ -9,6 +9,7 @@
 module Types.Env where
 
 ------------------------------------------------------------------------------
+import           Chainweb.Api.ChainId
 import           Control.Lens (makeLenses)
 import           Control.Monad.Reader
 import           Data.Aeson hiding (Encoding)
@@ -172,6 +173,12 @@ dataFileP = strOption $ mconcat
   , metavar "DATA_FILE"
   ]
 
+chainP :: Parser ChainId
+chainP = fmap ChainId $ argument auto $ mconcat
+  [ help "Chain ID"
+  , metavar "CHAIN_ID"
+  ]
+
 genTxArgsP :: Parser GenTxArgs
 genTxArgsP = GenTxArgs <$> templateFileP <*> (holesP <|> fmap Right genDataP)
 
@@ -182,12 +189,13 @@ data SubCommand
   | Keygen KeyType
   | ListKeys FilePath KeyIndex
   | Local NodeTxCmdArgs
+  | Mempool HostPort Text ChainId
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
 --  | Batch [FilePath]
 --  | Quicksign
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show)
 
 data Args = Args
   { _args_command :: SubCommand
@@ -256,6 +264,12 @@ signingCommands = mconcat
   , hidden
   ]
 
+networkP :: Parser Text
+networkP = strArgument $ mconcat
+  [ metavar "NETWORK"
+  , help "The node's network ID (i.e. mainnet01, testnet04, etc)"
+  ]
+
 nodeCommands :: Mod CommandFields SubCommand
 nodeCommands = mconcat
   [ command "local" (info (Local <$> nodeTxCmdP)
@@ -266,6 +280,8 @@ nodeCommands = mconcat
       (progDesc "Send commands to a node's /send endpoint"))
   , command "cut" (info (Cut <$> nodeArgP)
       (progDesc "Query a node's /cut endpoint"))
+  , command "mempool" (info (Mempool <$> nodeArgP <*> networkP <*> chainP)
+      (progDesc "Get mempool pending transactions"))
   , commandGroup "Node Interaction Commands"
   , hidden
   ]

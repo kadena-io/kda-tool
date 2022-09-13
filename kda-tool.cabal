@@ -22,6 +22,7 @@ library
     Commands.Keygen
     Commands.ListKeys
     Commands.Local
+    Commands.Mempool
     Commands.Poll
     Commands.Send
     Commands.Sign

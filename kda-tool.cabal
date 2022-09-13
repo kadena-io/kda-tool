@@ -17,6 +17,7 @@ library
   exposed-modules:
     AppMain
     Commands.CombineSigs
+    Commands.Cut
     Commands.GenTx
     Commands.Keygen
     Commands.ListKeys

@@ -15,6 +15,7 @@ import           System.Exit
 import           System.IO
 import           System.Random.MWC
 ------------------------------------------------------------------------------
+import           Commands.Cut
 import           Commands.CombineSigs
 import           Commands.GenTx
 import           Commands.Keygen
@@ -42,6 +43,7 @@ appMain = do
     let theEnv = Env mgr le rand
     case c of
       --Batch files -> batchCommand files
+      Cut hp -> cutCommand hp
       CombineSigs files -> combineSigsCommand theEnv files
       GenTx args -> genTxCommand args
       Keygen keyType -> keygenCommand keyType

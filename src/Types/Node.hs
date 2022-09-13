@@ -71,21 +71,42 @@ getNode h = do
     infoUrl = T.unpack $ hostPortToText h <> "/info"
     versionUrl = T.unpack $ hostPortToText h <> "/version"
 
-nodePactRoot :: Node -> ChainId -> Text
-nodePactRoot n c =
+nodeApiRoot :: Node -> Text
+nodeApiRoot n =
     case (_node_serverType n, _node_nodeInfo n) of
       (PactServer, _) -> prefix
       (ChainwebServer, Just ni) ->
         prefix <>
         "chainweb/" <>
         _nodeInfo_apiVer ni <> "/" <>
-        _nodeInfo_chainwebVer ni <>
+        _nodeInfo_chainwebVer ni
+      _ -> error $ "Couldn't get node " <> T.unpack hpText <> " info"
+  where
+    hpText = hostPortToText (_node_server n)
+    prefix = schemeText (_node_scheme n) <> hpText <> "/"
+
+nodePactRoot :: Node -> ChainId -> Text
+nodePactRoot n c =
+    case (_node_serverType n) of
+      PactServer -> nodeApiRoot n
+      ChainwebServer ->
+        nodeApiRoot n <>
         "/chain/" <>
         T.pack (show $ unChainId c) <>
         "/pact/api/v1"
-      _ -> error "Couldn't get node info"
+
+nodeGetCut :: Node -> IO (Response LB.ByteString)
+nodeGetCut n = do
+    req0 <- parseRequest url
+    let req = req0
+          { method = "GET"
+--          , requestBody = RequestBodyLBS bs
+--          , requestHeaders = [(hContentType, "application/json")]
+          }
+    httpLbs req (_node_httpManager n)
   where
-    prefix = schemeText (_node_scheme n) <> hostPortToText (_node_server n) <> "/"
+    url = T.unpack root <> "/cut"
+    root = nodeApiRoot n
 
 pollNode :: Node -> ChainId -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
 pollNode n cid rks = do

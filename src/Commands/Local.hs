@@ -22,16 +22,16 @@ import           Types.Node
 import           Utils
 ------------------------------------------------------------------------------
 
-localCommand :: Env -> NodeCmdArgs -> IO ()
+localCommand :: Env -> NodeTxCmdArgs -> IO ()
 localCommand e args = do
-  case _nodeCmdArgs_files args of
+  case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
-      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
+      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeTxCmdArgs_files args)
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
         txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
-        n <- ExceptT $ getNode (_nodeCmdArgs_node args)
+        n <- ExceptT $ getNode (_nodeTxCmdArgs_node args)
         logEnv e DebugS $ fromStr $ printf "Testing %d commands locally\n" (length txs)
         responses <- lift $ mapM (localNodeQuery n) txs
         lift $ T.putStrLn $ toS $ encode $ map responseToValue responses

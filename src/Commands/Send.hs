@@ -29,16 +29,16 @@ import           Types.Node
 import           Utils
 ------------------------------------------------------------------------------
 
-sendCommand :: Env -> NodeCmdArgs -> IO ()
+sendCommand :: Env -> NodeTxCmdArgs -> IO ()
 sendCommand e args = do
-  case _nodeCmdArgs_files args of
+  case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
-      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeCmdArgs_files args)
+      logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeTxCmdArgs_files args)
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
         txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
-        n <- ExceptT $ getNode (_nodeCmdArgs_node args)
+        n <- ExceptT $ getNode (_nodeTxCmdArgs_node args)
         let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
         logEnv e DebugS $ fromStr $ printf "Sending %d commands to %d chains\n" (length txs) (length groups)
         responses <- lift $ mapM (sendToNode n) groups

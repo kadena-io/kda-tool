@@ -99,21 +99,27 @@ keyFileP = strOption $ mconcat
 signP :: Parser SignArgs
 signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP
 
-data NodeCmdArgs = NodeCmdArgs
-  { _nodeCmdArgs_files :: [FilePath]
-  , _nodeCmdArgs_node :: HostPort
+data NodeTxCmdArgs = NodeTxCmdArgs
+  { _nodeTxCmdArgs_files :: [FilePath]
+  , _nodeTxCmdArgs_node :: HostPort
   } deriving (Eq,Ord,Show,Read)
 
-nodeP :: Parser HostPort
-nodeP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
+nodeOptP :: Parser HostPort
+nodeOptP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
   [ long "node"
   , short 'n'
   , metavar "NODE"
   , help "Node hostname and optional port separated by a ':'"
   ]
 
-nodeCmdP :: Parser NodeCmdArgs
-nodeCmdP = NodeCmdArgs <$> many txFileP <*> nodeP
+nodeArgP :: Parser HostPort
+nodeArgP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
+  [ metavar "NODE"
+  , help "Node hostname and optional port separated by a ':'"
+  ]
+
+nodeTxCmdP :: Parser NodeTxCmdArgs
+nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> nodeOptP
 
 data Holes = Holes
   deriving (Eq,Ord,Show,Read)
@@ -171,12 +177,13 @@ genTxArgsP = GenTxArgs <$> templateFileP <*> (holesP <|> fmap Right genDataP)
 
 data SubCommand
   = CombineSigs [FilePath]
+  | Cut HostPort
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys FilePath KeyIndex
-  | Local NodeCmdArgs
-  | Poll NodeCmdArgs
-  | Send NodeCmdArgs
+  | Local NodeTxCmdArgs
+  | Poll NodeTxCmdArgs
+  | Send NodeTxCmdArgs
   | Sign SignArgs
 --  | Batch [FilePath]
 --  | Quicksign
@@ -251,12 +258,14 @@ signingCommands = mconcat
 
 nodeCommands :: Mod CommandFields SubCommand
 nodeCommands = mconcat
-  [ command "local" (info (Local <$> nodeCmdP)
+  [ command "local" (info (Local <$> nodeTxCmdP)
       (progDesc "Test commands locally with a node's /local endpoint"))
-  , command "poll" (info (Poll <$> nodeCmdP)
+  , command "poll" (info (Poll <$> nodeTxCmdP)
       (progDesc "Poll command results with a node's /poll endpoint"))
-  , command "send" (info (Send <$> nodeCmdP)
+  , command "send" (info (Send <$> nodeTxCmdP)
       (progDesc "Send commands to a node's /send endpoint"))
+  , command "cut" (info (Cut <$> nodeArgP)
+      (progDesc "Query a node's /cut endpoint"))
   , commandGroup "Node Interaction Commands"
   , hidden
   ]

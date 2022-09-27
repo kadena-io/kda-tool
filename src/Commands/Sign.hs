@@ -9,8 +9,6 @@ module Commands.Sign
 import qualified Cardano.Crypto.Wallet as Crypto
 import           Control.Error
 import qualified Crypto.Hash as Crypto
-import qualified Crypto.Encoding.BIP39 as Crypto
-import qualified Crypto.Encoding.BIP39.English as Crypto
 import           Control.Monad.Except
 import           Data.ByteString (ByteString)
 import qualified Data.ByteArray as BA

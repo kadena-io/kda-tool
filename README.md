@@ -57,10 +57,23 @@ Need to find the right names for the transaction formats.
 
 #### Template
 
+
 #### Finalized
 
-`CommandSigData` from the signing API
+`SigData` ... more recently evolved to `CommandSigData` from the signing API
 
 #### Fully Signed
 
 Pact's `Command Text`
+
+```
+{
+  "hash": "H6XjdPHzMai2HLa3_yVkXfkFYMgA0bGfsB0kOsHAMuI",
+  "sigs": [
+    {
+      "sig": "8d452109cc0439234c093b5e204a7428bc0a54f22704402492e027aaa9375a34c910d8a468a12746d0d29e9353f4a3fbebe920d63bcc7963853995db015d060f"
+    }
+  ],
+  "cmd": "{\"payload\":{\"exec\":{\"data\":null,\"code\":\"(+ 1 2)\"}},\"signers\":[{\"pubKey\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"}],\"meta\":{\"gasLimit\":1000,\"chainId\":\"0\",\"gasPrice\":1.0e-2,\"sender\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"},\"nonce\":\"nonce-value\"}"
+}
+```

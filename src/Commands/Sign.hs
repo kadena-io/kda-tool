@@ -8,7 +8,11 @@ module Commands.Sign
 ------------------------------------------------------------------------------
 import qualified Cardano.Crypto.Wallet as Crypto
 import           Control.Error
+import qualified Crypto.Hash as Crypto
+import qualified Crypto.Encoding.BIP39 as Crypto
+import qualified Crypto.Encoding.BIP39.English as Crypto
 import           Control.Monad.Except
+import           Data.ByteString (ByteString)
 import qualified Data.ByteArray as BA
 import           Data.List
 import           Data.Set (Set)
@@ -81,7 +85,7 @@ signYamlFile kkey mindex msgFile = do
           let pubHex = PublicKeyHex $ toB16 $ BA.convert pub
           if S.member pubHex signingKeys
             then do
-              let sig = UserSig $ toB16 $ BA.convert $ sign sec (encodeUtf8 cmd)
+              let sig = UserSig $ toB16 $ BA.convert $ sign sec (calcHash $ encodeUtf8 cmd)
               hClose mh
               let newSigs = addSig pubHex sig sigs
               let csd2 = CommandSigData newSigs cmd
@@ -101,7 +105,7 @@ tryHdIndex msgFile csd xprv mind = do
       cmdBS = encodeUtf8 cmd
       signingKeys = S.fromList $ map fst $ unSignatureList startingSigs
       signPairs = getSigningInds signingKeys xprv (maybe [0..100] (:[]) mind)
-      f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec cmdBS)
+      f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec (calcHash cmdBS))
       newSigs = foldr f startingSigs signPairs
   let csd2 = CommandSigData newSigs cmd
       num1 = countSigs csd
@@ -111,6 +115,9 @@ tryHdIndex msgFile csd xprv mind = do
       fp <- saveCommandSigData (dropExtension msgFile) csd2
       pure $ Just (fp, countSigs csd2 - countSigs csd)
     else pure Nothing
+
+calcHash :: ByteString -> ByteString
+calcHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
 
 getSigningInds
   :: Set PublicKeyHex

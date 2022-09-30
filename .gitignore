@@ -6,3 +6,6 @@ result
 out
 out.log
 config.json
+.envrc*
+*.12words
+*.kda

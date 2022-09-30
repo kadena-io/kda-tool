@@ -7,9 +7,7 @@ import           Control.Applicative
 import           Control.Error
 import           Data.Aeson as A
 import           Data.Aeson.Types
-import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as LB
-import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -17,7 +15,6 @@ import qualified Data.Text.IO as T
 import           Pact.ApiReq
 import           Pact.Types.Lang
 import           Pact.Types.RPC
-import           Pact.Types.Runtime
 ------------------------------------------------------------------------------
 
 data PactTxType = PttExec | PttCont
@@ -74,7 +71,7 @@ txInputsToApiReq txi = do
   case _txInputs_payload txi of
     Left c -> pure $ ApiReq
       (Just t)
-      (let PactId t = _cmPactId c in hush $ fromText' t)
+      (let PactId pid = _cmPactId c in hush $ fromText' pid)
       (Just $ _cmStep c)
       (Just $ _cmRollback c)
       (Just $ _cmData c)
@@ -86,7 +83,7 @@ txInputsToApiReq txi = do
       (Just $ _txInputs_signers txi)
       (_txInputs_nonce txi)
       (Just $ _txInputs_meta txi)
-      (Just $ _txInputs_networkId txi)
+      n
     Right ei -> do
       d <- getOrReadFile (eitherDecode . LB.fromStrict . T.encodeUtf8) $ _execInputs_dataOrFile ei
       c <- getOrReadFile Right $ _execInputs_codeOrFile ei
@@ -104,10 +101,10 @@ txInputsToApiReq txi = do
         (Just $ _txInputs_signers txi)
         (_txInputs_nonce txi)
         (Just $ _txInputs_meta txi)
-        (Just $ _txInputs_networkId txi)
+        n
 
 getOrReadFile :: (Text -> Either String a) -> Either a FilePath -> IO (Either String a)
-getOrReadFile parser (Left a) = pure $ Right a
+getOrReadFile _ (Left a) = pure $ Right a
 getOrReadFile parser (Right fp) = do
   t <- T.readFile fp
   pure $ parser t

@@ -13,7 +13,6 @@ import qualified Data.ByteString.Lazy as LB
 import           Data.Either
 import           Data.Maybe
 import           Data.Scientific
-import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

@@ -9,7 +9,6 @@ import           Control.Error
 import           Control.Monad.Trans
 import           Data.Aeson
 import           Data.Bifunctor
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Map as M
 import qualified Data.Set as S

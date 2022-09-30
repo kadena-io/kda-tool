@@ -12,7 +12,6 @@ import           Data.Aeson
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
 import           Data.String.Conv
-import qualified Data.Text.IO as T
 import           Katip
 import           System.Exit
 import           Text.Printf

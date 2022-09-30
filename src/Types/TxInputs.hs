@@ -112,32 +112,6 @@ getOrReadFile parser (Right fp) = do
   t <- T.readFile fp
   pure $ parser t
 
---data ApiReq = ApiReq {
---  _ylType :: Maybe Text,
---  _ylPactTxHash :: Maybe Hash,
---  _ylStep :: Maybe Int,
---  _ylRollback :: Maybe Bool,
---  _ylData :: Maybe Value,
---  _ylProof :: Maybe ContProof,
---  _ylDataFile :: Maybe FilePath,
---  _ylCode :: Maybe Text,
---  _ylCodeFile :: Maybe FilePath,
---  _ylKeyPairs :: Maybe [ApiKeyPair],
---  _ylSigners :: Maybe [ApiSigner],
---  _ylNonce :: Maybe Text,
---  _ylPublicMeta :: Maybe ApiPublicMeta,
---  _ylNetworkId :: Maybe NetworkId
---  } deriving (Eq,Show,Generic)
-
---mkApiReqCmd
---  :: Bool
---     -- ^ make "unsigned command" for offline signing
---  -> FilePath
---     -- ^ filepath for chdir for loading files
---  -> ApiReq
---     -- ^ the ApiReq
---  -> IO (ApiReqParts, Command Text)
-
 instance ToJSON TxInputs where
   toJSON ti = A.Object $ payloadPairs <> mconcat
     [ "type" .= _txInputs_type ti
@@ -172,7 +146,13 @@ instance FromJSON TxInputs where
             c <- maybe (fail "Must have exec or cont fields") pure mc
             let d = fromMaybe (Left $ object []) md
             pure $ Right $ ExecInputs c d
+
+        -- We want to allow both "meta" and "publicMeta" here to make this tool
+        -- usable in as many situations as possible. We can consider removing
+        -- the legacy support for "publicMeta" somewhere down the line after
+        -- sufficient adoption.
         m <- (o .: "meta") <|> (o .: "publicMeta")
+
         TxInputs
           <$> pure t
           <*> pure p

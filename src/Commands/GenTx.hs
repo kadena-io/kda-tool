@@ -69,7 +69,6 @@ genTxCommand args = do
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)
         let ps = zip fps outs
-        lift $ mapM_ (\(fp,cmd) -> T.writeFile ("intermediate-" <> T.unpack fp) cmd) (zip fps txts)
         lift $ mapM_ (\(fp,cmd) -> T.writeFile (T.unpack fp) cmd) ps
         pure ps
   case res of

@@ -23,6 +23,7 @@ import           Pact.Types.SigData
 import           System.Exit
 import           System.FilePath
 import           System.IO
+import           System.IO.Echo
 import           Text.Printf
 ------------------------------------------------------------------------------
 import           Keys
@@ -31,8 +32,11 @@ import           Types.Env
 import           Utils
 ------------------------------------------------------------------------------
 
+withQuiet :: Bool -> IO () -> IO ()
+withQuiet isQuiet = if isQuiet then withoutInputEcho else id
+
 signCommand :: SignArgs -> IO ()
-signCommand args = do
+signCommand args = withQuiet (_signArgs_quiet args) $ do
   let keyfile = _signArgs_keyFile args
   let index = _signArgs_keyInd args
   let files = _signArgs_files args

@@ -34,6 +34,7 @@ library
     Types.HostPort
     Types.KeyType
     Types.Node
+    Types.TxInputs
     Utils
 
   build-depends:
@@ -57,6 +58,7 @@ library
     , cryptonite
     , data-default
     , dlist
+    , echo
     , errors
     , filepath
     , http-client

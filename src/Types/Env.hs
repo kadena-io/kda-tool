@@ -62,6 +62,7 @@ data SignArgs = SignArgs
   { _signArgs_keyFile :: FilePath
   , _signArgs_keyInd :: Maybe KeyIndex
   , _signArgs_files :: [FilePath]
+  , _signArgs_quiet :: Bool
   } deriving (Eq,Ord,Show,Read)
 
 encodingOption :: Parser Encoding
@@ -97,8 +98,11 @@ keyFileP = strOption $ mconcat
   , help "File containing plain key pair or HD key recovery phrase to sign with"
   ]
 
+quietP :: Parser Bool
+quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode")
+
 signP :: Parser SignArgs
-signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP
+signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP <*> quietP
 
 data NodeTxCmdArgs = NodeTxCmdArgs
   { _nodeTxCmdArgs_files :: [FilePath]

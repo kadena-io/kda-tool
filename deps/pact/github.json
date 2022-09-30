@@ -1,8 +1,8 @@
 {
   "owner": "kadena-io",
   "repo": "pact",
-  "branch": "master",
+  "branch": "additional-apireq-exports",
   "private": false,
-  "rev": "957b8bd7644cebc60d043b33f0d7ffc53c65d783",
-  "sha256": "1caw8m5mn8q42zqvc9mpm88yqqas7h33799lrvkcsmr8c4nqf70i"
+  "rev": "8b04ccd096222a95254f5c2d068d0d969fb7c3ee",
+  "sha256": "1422xd0zd206ypiyjzdshcrs4jyhawjhi7h832crdiwvkavj4272"
 }

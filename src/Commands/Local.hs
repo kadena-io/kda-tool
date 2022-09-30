@@ -32,9 +32,9 @@ localCommand e args = do
       res <- runExceptT $ do
         txs :: [Transaction] <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
         n <- ExceptT $ getNode (_nodeTxCmdArgs_node args)
-        logEnv e DebugS $ fromStr $ printf "Testing %d commands locally\n" (length txs)
+        logEnv e DebugS $ fromStr $ printf "Testing %d commands locally" (length txs)
         responses <- lift $ mapM (localNodeQuery n) txs
-        lift $ T.putStrLn $ toS $ encode $ map responseToValue responses
+        lift $ putStrLn $ toS $ encode $ map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
         Right () -> pure ()

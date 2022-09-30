@@ -13,6 +13,7 @@ import qualified Data.ByteString.Lazy as LB
 import           Data.Either
 import           Data.Maybe
 import           Data.Scientific
+import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -69,6 +70,7 @@ lensyConstructorToNiceJson :: String -> String
 lensyConstructorToNiceJson fieldName = dropWhile (=='_') $ dropWhile (/='_') $ dropWhile (=='_') fieldName
 
 newtype MaybeBatch a = MaybeBatch { unMaybeBatch :: [a] }
+  deriving (Eq,Ord,Show)
 
 instance FromJSON a => FromJSON (MaybeBatch a) where
   parseJSON v =
@@ -76,16 +78,16 @@ instance FromJSON a => FromJSON (MaybeBatch a) where
       Object o -> do
         mcmds <- o .:? "cmds"
         case mcmds of
-          Nothing -> parseJSON v
+          Nothing -> MaybeBatch . (:[]) <$> parseJSON v
           Just cs -> pure $ MaybeBatch cs
       _ -> MaybeBatch . (:[]) <$> parseJSON v
 
 parseAsJsonOrYaml :: FromJSON a => [LB.ByteString] -> Either [String] [a]
 parseAsJsonOrYaml bss =
   case partitionEithers $ A.eitherDecode <$> bss of
-    ([],vs) -> Right $ concat $ map unMaybeBatch vs
+    ([],lvs) -> Right $ concat $ map unMaybeBatch lvs
     (esJ,_) -> case partitionEithers $ YA.decode1Strict . LB.toStrict <$> bss of
-      ([],vs) -> Right $ concat $ map unMaybeBatch vs
+      ([],rvs) -> Right $ concat $ map unMaybeBatch rvs
       (esY,_) -> Left (map show esJ ++ map show esY)
 
 niceQuoteEncodeYaml :: ToJSON a => a -> LB.ByteString

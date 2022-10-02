@@ -1,17 +1,25 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Utils where
 
 ------------------------------------------------------------------------------
+import           Chainweb.Api.ChainId
+import           Chainweb.Api.ChainwebMeta
+import           Chainweb.Api.PactCommand
+import           Chainweb.Api.Transaction
+import           Control.Error
+import           Control.Exception
+import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as A
 import           Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Char8 as A (endOfInput, parseOnly, scientific)
+import           Data.Char
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
-import           Data.Either
-import           Data.Maybe
+import           Data.List
 import           Data.Scientific
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -27,7 +35,11 @@ import qualified Data.YAML.Schema as Y
 import qualified Data.YAML.Token as Y
 import           Kadena.SigningTypes
 import           GHC.Generics
+import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
+import           System.Directory
+import           System.FilePath
+import           Text.Printf
 ------------------------------------------------------------------------------
 
 tshow :: Show a => a -> Text
@@ -130,3 +142,125 @@ hasYamlExtension = T.isSuffixOf ".yaml" . T.pack
 
 countSigs :: CommandSigData -> Int
 countSigs = length . filter (isJust . snd) . unSignatureList . _csd_sigs
+
+txChain :: Transaction -> ChainId
+txChain = _chainwebMeta_chainId . _pactCommand_meta . _transaction_cmd
+
+txNetwork :: Transaction -> Maybe Text
+txNetwork = _pactCommand_network . _transaction_cmd
+
+
+data PathCompleterOpts = PathCompleterOpts
+    { pcoAbsolute :: Bool
+    , pcoRelative :: Bool
+    , pcoRootDir :: Maybe FilePath
+    , pcoFileFilter :: FilePath -> Bool
+    , pcoDirFilter :: FilePath -> Bool
+    }
+
+defaultPathCompleterOpts :: PathCompleterOpts
+defaultPathCompleterOpts = PathCompleterOpts
+    { pcoAbsolute = True
+    , pcoRelative = True
+    , pcoRootDir = Nothing
+    , pcoFileFilter = const True
+    , pcoDirFilter = const True
+    }
+
+fileCompleter :: Completer
+fileCompleter = pathCompleterWith defaultPathCompleterOpts
+
+fileExtCompleter :: [String] -> Completer
+fileExtCompleter exts = pathCompleterWith defaultPathCompleterOpts { pcoFileFilter = (`elem` exts) . takeExtension }
+
+dirCompleter :: Completer
+dirCompleter = pathCompleterWith defaultPathCompleterOpts { pcoFileFilter = const False }
+
+pathCompleterWith :: PathCompleterOpts -> Completer
+pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
+    -- Unescape input, to handle single and double quotes. Note that the
+    -- results do not need to be re-escaped, due to some fiddly bash
+    -- magic.
+    let input = unescapeBashArg inputRaw
+    let (inputSearchDir0, searchPrefix) = splitFileName input
+        inputSearchDir = if inputSearchDir0 == "./" then "" else inputSearchDir0
+    msearchDir <-
+        case (isRelative inputSearchDir, pcoAbsolute, pcoRelative) of
+            (True, _, True) -> do
+                if "~" `isPrefixOf` inputSearchDir
+                  then do
+                    searchDir <- tildeExpand inputSearchDir
+                    pure $ Just searchDir
+                  else do
+                    rootDir <- maybe getCurrentDirectory return pcoRootDir
+                    return $ Just (rootDir </> inputSearchDir)
+            (False, True, _) -> return $ Just inputSearchDir
+            _ -> return Nothing
+    case msearchDir of
+        Nothing
+            | input == "" && pcoAbsolute -> return ["/"]
+            | otherwise -> return []
+        Just searchDir -> do
+            entries <- getDirectoryContents searchDir `catch` \(_ :: IOException) -> return []
+            results <- fmap catMaybes $ forM entries $ \entry ->
+                -- Skip . and .. unless user is typing . or ..
+                if entry `elem` ["..", "."] && searchPrefix `notElem` ["..", "."] then return Nothing else
+                    if searchPrefix `isPrefixOf` entry
+                        then do
+                            let path = searchDir </> entry
+                            case (pcoFileFilter path, pcoDirFilter path) of
+                                (True, True) -> return $ Just $ escapeShellArg (inputSearchDir </> entry)
+                                (fileAllowed, dirAllowed) -> do
+                                    isDir <- doesDirectoryExist path
+                                    if (if isDir then dirAllowed else fileAllowed)
+                                        then return $ Just $ escapeShellArg (inputSearchDir </> entry)
+                                        else return Nothing
+                        else return Nothing
+            return results
+
+escapeShellArg :: String -> String
+escapeShellArg s = go s
+  where
+    go [] = []
+    go (c:rest) = (if shouldEscape c then ('\\' :) else id) $ c : go rest
+
+shouldEscape :: Char -> Bool
+shouldEscape c = not (isAlphaNum c) && case c of
+  ',' -> False
+  '.' -> False
+  '_' -> False
+  '+' -> False
+  ':' -> False
+  '@' -> False
+  '%' -> False
+  '/' -> False
+  '-' -> False
+  '~' -> False
+  _ -> True
+
+tildeExpand :: String -> IO String
+tildeExpand s = case s of
+  ('~' : rest) -> do
+    let (user,suffix) = span (/= '/') rest
+    tildeDir <- case user of
+      "" -> getHomeDirectory
+      _ -> do
+        h <- getHomeDirectory
+        pure $ dropFileName h </> user
+    pure (tildeDir <> suffix)
+  _ -> pure s
+
+unescapeBashArg :: String -> String
+unescapeBashArg ('\'' : rest) = rest
+unescapeBashArg ('\"' : rest) = go rest
+  where
+    go [] = []
+    go ('\\' : x : xs)
+        | x `elem` ("$`\"\\\n" :: String) = x : xs
+        | otherwise = '\\' : x : go xs
+    go (x : xs) = x : go xs
+unescapeBashArg input = go input
+  where
+    go [] = []
+    go ('\\' : x : xs) = x : go xs
+    go (x : xs) = x : go xs

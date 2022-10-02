@@ -10,10 +10,18 @@ module Types.Env where
 
 ------------------------------------------------------------------------------
 import           Chainweb.Api.ChainId
+import           Chainweb.Api.Transaction
+import           Control.Error
 import           Control.Lens (makeLenses)
 import           Control.Monad.Reader
 import           Data.Aeson hiding (Encoding)
 import           Data.Default
+import           Data.Function
+import           Data.List
+import qualified Data.List.NonEmpty as NE
+import           Data.Map (Map)
+import qualified Data.Map as M
+import           Data.Ord
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Katip
@@ -26,23 +34,54 @@ import           Keys
 import           Types.Encoding
 import           Types.HostPort
 import           Types.KeyType
+import           Utils
 ------------------------------------------------------------------------------
 
 data ConfigData = ConfigData
-  { _configData_foo :: Maybe Text
+  { _configData_networks :: Maybe (Map Text HostPort)
   } deriving (Eq,Ord,Show,Read)
 
 instance Default ConfigData where
-  def = ConfigData Nothing
+  def = ConfigData mempty
 
 instance FromJSON ConfigData where
   parseJSON = withObject "ConfigData" $ \v -> ConfigData
-    <$> v .: "foo"
+    <$> v .: "networks"
+
+lookupConfiguredNetwork :: Env -> Text -> Either String HostPort
+lookupConfiguredNetwork e net = do
+  m <- note "No networks configured" $ _configData_networks $ _env_configData e
+  note ("\"" <> T.unpack net <> "\" network does not exist") $ M.lookup net m
+
+groupByNetwork :: Env -> [Transaction] -> Either String [(HostPort, [Transaction])]
+groupByNetwork e allTxs = do
+    hps <- case partitionEithers ehps of
+      ([], hps)  -> Right hps
+      (es, _)  -> do
+        Left $ unlines $
+          "Some of your transactions don't specify a network or specify a network that is not configured.  To resolve this you can either add missing networks to your transactions,  or specify a node with -n."
+          : es
+    Right (zip hps $ map NE.toList networkGroups)
+  where
+    networkGroups = NE.groupBy ((==) `on` txNetwork) $ sortBy (comparing txNetwork) allTxs
+    ehps = map (lookupConfiguredNetwork e <=<
+                note "Transaction does not specify a network" .
+                txNetwork .
+                NE.head) networkGroups
+
+handleOptionalNode
+  :: Monad m
+  => Env
+  -> [Transaction]
+  -> Maybe HostPort
+  -> ExceptT String m [(HostPort, [Transaction])]
+handleOptionalNode e allTxs Nothing = hoistEither $ groupByNetwork e allTxs
+handleOptionalNode _ allTxs (Just hp) = pure [(hp, allTxs)]
 
 data Env = Env
   { _env_httpManager :: Manager
   , _env_logEnv :: LogEnv
---  , _env_configData :: ConfigData
+  , _env_configData :: ConfigData
   , _env_rand :: GenIO
   }
 
@@ -72,6 +111,7 @@ encodingOption = option (maybeReader $ textToEncoding . T.pack) $ mconcat
   , value Yaml
   , metavar "ENCODING"
   , help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))"
+  , completeWith (map (T.unpack . encodingToText) [minBound..maxBound])
   ]
 
 keyIndexP :: Parser KeyIndex
@@ -88,6 +128,7 @@ txFileP :: Parser FilePath
 txFileP = strArgument $ mconcat
   [ help "YAML file(s) containing transactions"
   , metavar "TX_FILE"
+  , completer $ fileExtCompleter [".yaml", ".json"]
   ]
 
 keyFileP :: Parser FilePath
@@ -96,17 +137,18 @@ keyFileP = strOption $ mconcat
   , short 'k'
   , metavar "KEY_FILE"
   , help "File containing plain key pair or HD key recovery phrase to sign with"
+  , completer $ fileExtCompleter [".kda", ".phrase"]
   ]
 
 quietP :: Parser Bool
-quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode")
+quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode (don't echo keys entered on stdin)")
 
 signP :: Parser SignArgs
 signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP <*> quietP
 
 data NodeTxCmdArgs = NodeTxCmdArgs
   { _nodeTxCmdArgs_files :: [FilePath]
-  , _nodeTxCmdArgs_node :: HostPort
+  , _nodeTxCmdArgs_node :: Maybe HostPort
   } deriving (Eq,Ord,Show,Read)
 
 nodeOptP :: Parser HostPort
@@ -124,7 +166,7 @@ nodeArgP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
   ]
 
 nodeTxCmdP :: Parser NodeTxCmdArgs
-nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> nodeOptP
+nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional nodeOptP
 
 data Holes = Holes
   deriving (Eq,Ord,Show,Read)
@@ -152,8 +194,7 @@ templateFileP :: Parser FilePath
 templateFileP = strArgument $ mconcat
   [ help "YAML file with a mustache transaction template"
   , metavar "TEMPLATE_FILE"
-  --, long "template"
-  --, short 't'
+  , completer $ fileExtCompleter [".yaml"]
   ]
 
 filePatP :: Parser FilePath
@@ -161,7 +202,6 @@ filePatP = strOption $ mconcat
   [ long "out-file"
   , short 'o'
   , metavar "OUT_PAT"
-  --, help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")"
   , helpDoc $ Just $ mconcat
     [ text "Pattern to use for output filenames"
     , hardline
@@ -175,6 +215,7 @@ dataFileP = strOption $ mconcat
   , short 'd'
   , help "YAML data file for filling the tx template"
   , metavar "DATA_FILE"
+  , completer fileCompleter
   ]
 
 chainP :: Parser ChainId
@@ -204,6 +245,7 @@ data SubCommand
 data Args = Args
   { _args_command :: SubCommand
   , _args_severity :: Severity
+  , _args_configFile :: Maybe FilePath
   }
 
 fromStr :: String -> LogStr
@@ -218,14 +260,23 @@ logLevelP = option (maybeReader (textToSeverity . T.pack)) $ mconcat
   , completeWith (map (T.unpack . renderSeverity) [minBound..maxBound])
   ]
 
+configFileP :: Parser FilePath
+configFileP = strOption $ mconcat
+  [ long "config-file"
+  , short 'c'
+  , metavar "CONFIG_FILE"
+  , help "JSON file with general configuration options"
+  , completer $ fileExtCompleter [".json"]
+  ]
+
 envP :: Parser Args
-envP = Args <$> commands <*> logLevelP
+envP = Args <$> commands <*> logLevelP <*> optional configFileP
 
 keyTypeP :: Parser KeyType
 keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
-  [ completeWith (map rdr [minBound..maxBound])
+  [ metavar "KEY_TYPE"
   , help "Key type (plain or hd)"
-  , metavar "KEY_TYPE"
+  , completeWith (map rdr [minBound..maxBound])
   ]
   where
     rdr = T.unpack . keyTypeToText
@@ -237,6 +288,7 @@ listKeysP = ListKeys <$> hdKeyFileP <*> indP
     hdKeyFileP = strArgument $ mconcat
       [ help "HD key file"
       , metavar "KEY_FILE"
+      , completer $ fileExtCompleter [".phrase"]
       ]
     indP = argument keyIndexReader $ mconcat
       [ help "Maximum key index"
@@ -272,6 +324,7 @@ networkP :: Parser Text
 networkP = strArgument $ mconcat
   [ metavar "NETWORK"
   , help "The node's network ID (i.e. mainnet01, testnet04, etc)"
+  , completeWith ["mainnet01", "testnet04", "development"]
   ]
 
 nodeCommands :: Mod CommandFields SubCommand

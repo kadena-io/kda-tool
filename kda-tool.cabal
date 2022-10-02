@@ -57,6 +57,7 @@ library
     , cryptohash-sha512
     , cryptonite
     , data-default
+    , directory
     , dlist
     , echo
     , errors
@@ -75,6 +76,7 @@ library
     , network-uri
     , optparse-applicative
     , pact
+    , process
     , resource-pool
     , retry
     , scientific

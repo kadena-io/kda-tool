@@ -4,6 +4,7 @@
 module Types.HostPort where
 
 ------------------------------------------------------------------------------
+import           Data.Aeson
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Read
@@ -30,3 +31,5 @@ hostPortFromText t = do
   where
     (h,ptext) = T.break (== ':') t
 
+instance FromJSON HostPort where
+  parseJSON = withText "HostPort" $ \v -> either fail pure $ hostPortFromText v

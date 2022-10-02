@@ -82,6 +82,13 @@ hpkgs.developPackage {
     prettyprinter     = "1.6.0";
     hashable          = "1.3.0.0";
     base64-bytestring = "1.0.0.3";
+
+    optparse-applicative = pkgs.fetchFromGitHub {
+      owner = "pcapriotti";
+      repo = "optparse-applicative";
+      rev = "9399fd0f745e4d4d71e8bba03d402648b767363c";
+      sha256 = "0gkgccix898mafrs25fajqwxbb7zmg30livrj7b79knd6a5sqj76";
+    };
   };
 
   modifier = drv: pkgs.haskell.lib.overrideCabal drv (attrs: {

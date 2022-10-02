@@ -27,7 +27,7 @@ import           System.IO
 ------------------------------------------------------------------------------
 
 data Encoding = Raw | B16 | B64 | B64Url | Yaml
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Enum,Bounded)
 
 encodingToText :: Encoding -> Text
 encodingToText = \case

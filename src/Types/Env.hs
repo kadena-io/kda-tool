@@ -111,6 +111,7 @@ encodingOption = option (maybeReader $ textToEncoding . T.pack) $ mconcat
   , value Yaml
   , metavar "ENCODING"
   , help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))"
+  , completeWith (map (T.unpack . encodingToText) [minBound..maxBound])
   ]
 
 keyIndexP :: Parser KeyIndex
@@ -127,9 +128,7 @@ txFileP :: Parser FilePath
 txFileP = strArgument $ mconcat
   [ help "YAML file(s) containing transactions"
   , metavar "TX_FILE"
-  , completer fileCompleter
-  --, completer $ listIOCompleter $ listDirectory "."
-  --, action "filenames"
+  , completer $ fileExtCompleter [".yaml", ".json"]
   ]
 
 keyFileP :: Parser FilePath
@@ -138,11 +137,11 @@ keyFileP = strOption $ mconcat
   , short 'k'
   , metavar "KEY_FILE"
   , help "File containing plain key pair or HD key recovery phrase to sign with"
-  , completer fileCompleter
+  , completer $ fileExtCompleter [".kda", ".phrase"]
   ]
 
 quietP :: Parser Bool
-quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode")
+quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode (don't echo keys entered on stdin)")
 
 signP :: Parser SignArgs
 signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP <*> quietP
@@ -195,8 +194,7 @@ templateFileP :: Parser FilePath
 templateFileP = strArgument $ mconcat
   [ help "YAML file with a mustache transaction template"
   , metavar "TEMPLATE_FILE"
-  --, long "template"
-  --, short 't'
+  , completer $ fileExtCompleter [".yaml"]
   ]
 
 filePatP :: Parser FilePath
@@ -204,7 +202,6 @@ filePatP = strOption $ mconcat
   [ long "out-file"
   , short 'o'
   , metavar "OUT_PAT"
-  --, help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")"
   , helpDoc $ Just $ mconcat
     [ text "Pattern to use for output filenames"
     , hardline
@@ -218,6 +215,7 @@ dataFileP = strOption $ mconcat
   , short 'd'
   , help "YAML data file for filling the tx template"
   , metavar "DATA_FILE"
+  , completer fileCompleter
   ]
 
 chainP :: Parser ChainId
@@ -268,6 +266,7 @@ configFileP = strOption $ mconcat
   , short 'c'
   , metavar "CONFIG_FILE"
   , help "JSON file with general configuration options"
+  , completer $ fileExtCompleter [".json"]
   ]
 
 envP :: Parser Args
@@ -275,9 +274,9 @@ envP = Args <$> commands <*> logLevelP <*> optional configFileP
 
 keyTypeP :: Parser KeyType
 keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
-  [ completeWith (map rdr [minBound..maxBound])
+  [ metavar "KEY_TYPE"
   , help "Key type (plain or hd)"
-  , metavar "KEY_TYPE"
+  , completeWith (map rdr [minBound..maxBound])
   ]
   where
     rdr = T.unpack . keyTypeToText
@@ -289,6 +288,7 @@ listKeysP = ListKeys <$> hdKeyFileP <*> indP
     hdKeyFileP = strArgument $ mconcat
       [ help "HD key file"
       , metavar "KEY_FILE"
+      , completer $ fileExtCompleter [".phrase"]
       ]
     indP = argument keyIndexReader $ mconcat
       [ help "Maximum key index"
@@ -324,6 +324,7 @@ networkP :: Parser Text
 networkP = strArgument $ mconcat
   [ metavar "NETWORK"
   , help "The node's network ID (i.e. mainnet01, testnet04, etc)"
+  , completeWith ["mainnet01", "testnet04", "development"]
   ]
 
 nodeCommands :: Mod CommandFields SubCommand

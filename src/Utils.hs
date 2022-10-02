@@ -16,6 +16,7 @@ import           Data.Aeson
 import qualified Data.Aeson as A
 import           Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Char8 as A (endOfInput, parseOnly, scientific)
+import           Data.Char
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
 import           Data.List
@@ -35,7 +36,6 @@ import qualified Data.YAML.Token as Y
 import           Kadena.SigningTypes
 import           GHC.Generics
 import           Options.Applicative hiding (Parser)
-import           Options.Applicative.Builder.Completer
 import           Pact.Types.Command
 import           System.Directory
 import           System.FilePath
@@ -190,10 +190,6 @@ pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
                 if "~" `isPrefixOf` inputSearchDir
                   then do
                     searchDir <- tildeExpand inputSearchDir
-                    appendFile "complete-log" $ unlines $
-                      printf "Completing with partial input %s" inputRaw
-                      : printf "Tilde-expanded %s to %s" inputSearchDir searchDir
-                      : []
                     pure $ Just searchDir
                   else do
                     rootDir <- maybe getCurrentDirectory return pcoRootDir
@@ -213,17 +209,34 @@ pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
                         then do
                             let path = searchDir </> entry
                             case (pcoFileFilter path, pcoDirFilter path) of
-                                (True, True) -> return $ Just $ requote (inputSearchDir </> entry)
+                                (True, True) -> return $ Just $ escapeShellArg (inputSearchDir </> entry)
                                 (fileAllowed, dirAllowed) -> do
                                     isDir <- doesDirectoryExist path
                                     if (if isDir then dirAllowed else fileAllowed)
-                                        then return $ Just $ requote (inputSearchDir </> entry)
+                                        then return $ Just $ escapeShellArg (inputSearchDir </> entry)
                                         else return Nothing
                         else return Nothing
-            appendFile "complete-log" $ unlines $
-              printf "Filtered to the following completions from %s:" searchDir
-              : entries
             return results
+
+escapeShellArg :: String -> String
+escapeShellArg s = go s
+  where
+    go [] = []
+    go (c:rest) = (if shouldEscape c then ('\\' :) else id) $ c : go rest
+
+shouldEscape :: Char -> Bool
+shouldEscape c = not (isAlphaNum c) && case c of
+  ',' -> False
+  '.' -> False
+  '_' -> False
+  '+' -> False
+  ':' -> False
+  '@' -> False
+  '%' -> False
+  '/' -> False
+  '-' -> False
+  '~' -> False
+  _ -> True
 
 tildeExpand :: String -> IO String
 tildeExpand s = case s of

@@ -17,6 +17,11 @@ source-repository-package
 
 source-repository-package
     type: git
+    location: https://github.com/pcapriotti/optparse-applicative
+    tag: 9399fd0f745e4d4d71e8bba03d402648b767363c
+
+source-repository-package
+    type: git
     location: https://github.com/kadena-io/pact.git
     tag: 8b04ccd096222a95254f5c2d068d0d969fb7c3ee
 

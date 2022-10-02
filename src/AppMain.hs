@@ -7,12 +7,18 @@ module AppMain where
 
 ------------------------------------------------------------------------------
 import           Control.Monad.IO.Class
+import           Data.Aeson
+import           Data.Default
 import           Katip
 import           Network.HTTP.Client hiding (withConnection)
 import           Network.HTTP.Client.TLS
 import           Options.Applicative
+import           Options.Applicative.Help.Pretty hiding ((</>))
+import           System.Directory
+import           System.FilePath
 import           System.IO
 import           System.Random.MWC
+import           Text.Printf
 ------------------------------------------------------------------------------
 import           Commands.Cut
 import           Commands.CombineSigs
@@ -24,13 +30,12 @@ import           Commands.Mempool
 import           Commands.Poll
 import           Commands.Send
 import           Commands.Sign
-import           Options.Applicative.Help.Pretty
 import           Types.Env
 ------------------------------------------------------------------------------
 
 appMain :: IO ()
 appMain = do
-    Args c sev <- execParser opts
+    Args c sev mcf <- execParser opts
     let verbosity = V2
     mgr <- newManager tlsManagerSettings
 
@@ -40,7 +45,19 @@ appMain = do
 
     logLE le DebugS $ logStr $ "Logging with severity " <> show sev
     rand <- createSystemRandom
-    let theEnv = Env mgr le rand
+
+    cf <- maybe (getXdgDirectory XdgConfig ("kda" </> "config.json")) pure mcf
+    logLE le DebugS $ logStr $ "Loading config from " <> cf
+    configExists <- doesFileExist cf
+    ecd <- if configExists
+             then eitherDecodeFileStrict' cf
+             else pure $ Right def
+    cd <- case ecd of
+      Left e -> error (printf "Error parsing %s\n%s" cf e)
+      Right cd -> pure cd
+
+    logLE le DebugS $ logStr $ "Loaded config: " <> show cd
+    let theEnv = Env mgr le cd rand
     case c of
       --Batch files -> batchCommand files
       Cut hp -> cutCommand hp

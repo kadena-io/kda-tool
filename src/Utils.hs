@@ -213,7 +213,7 @@ pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
                         then do
                             let path = searchDir </> entry
                             case (pcoFileFilter path, pcoDirFilter path) of
-                                (True, True) -> return $ Just (inputSearchDir </> entry)
+                                (True, True) -> return $ Just $ requote (inputSearchDir </> entry)
                                 (fileAllowed, dirAllowed) -> do
                                     isDir <- doesDirectoryExist path
                                     if (if isDir then dirAllowed else fileAllowed)

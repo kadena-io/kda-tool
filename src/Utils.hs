@@ -35,6 +35,7 @@ import qualified Data.YAML.Token as Y
 import           Kadena.SigningTypes
 import           GHC.Generics
 import           Options.Applicative hiding (Parser)
+import           Options.Applicative.Builder.Completer
 import           Pact.Types.Command
 import           System.Directory
 import           System.FilePath
@@ -205,7 +206,6 @@ pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
             | otherwise -> return []
         Just searchDir -> do
             entries <- getDirectoryContents searchDir `catch` \(_ :: IOException) -> return []
-            appendFile "complete-log" $ unlines entries
             results <- fmap catMaybes $ forM entries $ \entry ->
                 -- Skip . and .. unless user is typing . or ..
                 if entry `elem` ["..", "."] && searchPrefix `notElem` ["..", "."] then return Nothing else
@@ -217,9 +217,12 @@ pathCompleterWith PathCompleterOpts {..} = mkCompleter $ \inputRaw -> do
                                 (fileAllowed, dirAllowed) -> do
                                     isDir <- doesDirectoryExist path
                                     if (if isDir then dirAllowed else fileAllowed)
-                                        then return $ Just (inputSearchDir </> entry)
+                                        then return $ Just $ requote (inputSearchDir </> entry)
                                         else return Nothing
                         else return Nothing
+            appendFile "complete-log" $ unlines $
+              printf "Filtered to the following completions from %s:" searchDir
+              : entries
             return results
 
 tildeExpand :: String -> IO String

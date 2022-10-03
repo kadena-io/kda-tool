@@ -39,7 +39,6 @@ import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
 import           System.Directory
 import           System.FilePath
-import           Text.Printf
 ------------------------------------------------------------------------------
 
 tshow :: Show a => a -> Text

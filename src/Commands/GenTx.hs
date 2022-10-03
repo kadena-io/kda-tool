@@ -2,6 +2,7 @@
 
 module Commands.GenTx
   ( genTxCommand
+  , txCommand
   ) where
 
 ------------------------------------------------------------------------------
@@ -12,11 +13,16 @@ import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Map as M
 import qualified Data.Set as S
+import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text.IO as T
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.YAML.Aeson as YA
+import           Network.Connection
+import           Network.HTTP.Client
+import           Network.HTTP.Client.TLS
+import           Network.HTTP.Types.Status
 --import           Pact.ApiReq
 import qualified Pact.ApiReq as Pact
 import           Pact.Types.Command
@@ -27,14 +33,32 @@ import           Text.Printf
 import           TxTemplate
 import           Types.TxInputs
 import           Types.Env
+import           Utils
 ------------------------------------------------------------------------------
 
 genTxCommand :: GenTxArgs -> IO ()
 genTxCommand args = do
   tplContents <- T.readFile $ _genTxArgs_templateFile args
+  genFromContents (_genTxArgs_operation args) tplContents
+
+txCommand :: Env -> TxArgs -> IO ()
+txCommand e args = do
+  let repo = fromMaybe "kadena-io/txlib" $ _configData_txRepo $ _env_configData e
+      tpl = _txArgs_templateName args
+      url = printf "https://raw.githubusercontent.com/%s/master/%s.ktpl" repo tpl
+  httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
+  req <- parseRequest url
+  resp <- httpLbs req httpsMgr
+  let tplContents = toS $ responseBody resp
+  if statusIsSuccessful $ responseStatus resp
+    then genFromContents (Right $ GenData Nothing Nothing) tplContents
+    else printf "Could not find template '%s' in repo %s\n" tpl repo
+
+genFromContents :: Either Holes GenData -> Text -> IO ()
+genFromContents op tplContents = do
   res <- runExceptT $ do
     (tpl,holes :: S.Set Text) <- hoistEither $ parseAndGetVars tplContents
-    case _genTxArgs_operation args of
+    case op of
       Left _ -> do
         lift $ mapM_ (\h -> T.putStrLn $ h <> ": null") holes
         pure []
@@ -48,23 +72,16 @@ genTxCommand args = do
             hSetBuffering stdout NoBuffering
             vs <- mapM askForValue remainingHoles
             pure $ M.fromList vs
-        let augmentedVars = M.union (M.filter (/= Null) vars) rest
+
+        -- A little magical convenience for the chain field
+        let augmentedVars = M.adjust stringifyChain "chain" $
+                              M.union (M.filter (/= Null) vars) rest
         txts <- hoistEither $ first prettyFailure $ fillValueVars tpl augmentedVars
         txis :: [TxInputs] <- sequence $ map (hoistEither . parseTxInputs) txts
         apiReqs :: [Pact.ApiReq] <- mapM (lift . txInputsToApiReq) txis
         cmds :: [Command Text] <- mapM (fmap snd . lift . Pact.mkApiReqCmd True "") apiReqs
         let sds :: [SigData Text] = rights $ map commandToSigData cmds
         let outs :: [Text] = map (decodeUtf8 . LB.toStrict . YA.encode1) sds
---mkApiReqCmd
---mkApiReqCmd
---  :: Bool
---     -- ^ make "unsigned command" for offline signing
---  -> FilePath
---     -- ^ filepath for chdir for loading files
---  -> ApiReq
---     -- ^ the ApiReq
---  -> IO (ApiReqParts, Command Text)
-
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)
@@ -75,6 +92,10 @@ genTxCommand args = do
     Left e -> error e
     Right [] -> pure ()
     Right ps -> putStrLn $ "Wrote commands to: " <> show (map fst ps)
+
+stringifyChain :: Value -> Value
+stringifyChain (Number x) = String $ tshow (round x :: Int)
+stringifyChain v = v
 
 parseTxInputs :: Text -> Either String TxInputs
 parseTxInputs = first show . YA.decode1Strict . encodeUtf8

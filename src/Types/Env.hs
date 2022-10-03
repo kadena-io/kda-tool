@@ -39,14 +39,16 @@ import           Utils
 
 data ConfigData = ConfigData
   { _configData_networks :: Maybe (Map Text HostPort)
+  , _configData_txRepo :: Maybe Text
   } deriving (Eq,Ord,Show,Read)
 
 instance Default ConfigData where
-  def = ConfigData mempty
+  def = ConfigData mempty mempty
 
 instance FromJSON ConfigData where
   parseJSON = withObject "ConfigData" $ \v -> ConfigData
     <$> v .: "networks"
+    <*> v .:? "tx-repo"
 
 lookupConfiguredNetwork :: Env -> Text -> Either String HostPort
 lookupConfiguredNetwork e net = do
@@ -171,6 +173,10 @@ nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional nodeOptP
 data Holes = Holes
   deriving (Eq,Ord,Show,Read)
 
+data TxArgs = TxArgs
+  { _txArgs_templateName :: Text
+  } deriving (Eq,Ord,Show,Read)
+
 data GenTxArgs = GenTxArgs
   { _genTxArgs_templateFile :: FilePath
   , _genTxArgs_operation :: Either Holes GenData
@@ -224,12 +230,22 @@ chainP = fmap ChainId $ argument auto $ mconcat
   , metavar "CHAIN_ID"
   ]
 
+templateNameP :: Parser Text
+templateNameP = strArgument $ mconcat
+  [ help "Name of a .ktpl tx template in a GitHub repo"
+  , metavar "TEMPLATE_NAME"
+  ]
+
 genTxArgsP :: Parser GenTxArgs
 genTxArgsP = GenTxArgs <$> templateFileP <*> (holesP <|> fmap Right genDataP)
+
+txArgsP :: Parser TxArgs
+txArgsP = TxArgs <$> templateNameP
 
 data SubCommand
   = CombineSigs [FilePath]
   | Cut HostPort
+  | Tx TxArgs
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys FilePath KeyIndex
@@ -306,7 +322,9 @@ commands =
 templateCommands :: Mod CommandFields SubCommand
 templateCommands = mconcat
   [ command "gen" (info (GenTx <$> genTxArgsP)
-      (progDesc "Generate transactions from a template"))
+      (progDesc "Generate transactions from a template file"))
+  , command "tx" (info (Tx <$> txArgsP)
+      (progDesc "Quickly generate transactions from templates on GitHub"))
   , commandGroup "Transaction Templating Commands"
   ]
 

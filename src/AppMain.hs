@@ -59,9 +59,9 @@ appMain = do
     logLE le DebugS $ logStr $ "Loaded config: " <> show cd
     let theEnv = Env mgr le cd rand
     case c of
-      --Batch files -> batchCommand files
       Cut hp -> cutCommand hp
       CombineSigs files -> combineSigsCommand theEnv files
+      Tx args -> txCommand theEnv args
       GenTx args -> genTxCommand args
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
@@ -83,28 +83,3 @@ appMain = do
       , "source <(kda --bash-completion-script `which kda`)"
       ]
 
-fireNothing :: a -> IO ()
-fireNothing _ = pure ()
-
-batchCommand :: [FilePath] -> IO ()
-batchCommand _ = do
-  putStrLn "Not implemented yet"
---  bss <- mapM LB.readFile files
---  case partitionEithers $ A.eitherDecode <$> bss of
---    ([],vs) -> batchJSONs vs
---    (esJ,_) -> case partitionEithers $ Y.decode1Strict . LB.toStrict <$> bss of
---      ([],vs) -> batchYAMLs vs
---      (esY,_) -> do
---        putStrLn "Got the following JSON errors:"
---        mapM_ print esJ
---        putStrLn "Got the following YAML errors:"
---        mapM_ print esY
---  pure ()
---
---batchJSONs :: [A.Value] -> IO ()
---batchJSONs vs = do
---  LB.putStrLn $ A.encode $ A.Array $ V.fromList vs
---
---batchYAMLs :: [A.Value] -> IO ()
---batchYAMLs vs = do
---  LB.putStrLn $ Y.encodeValue vs

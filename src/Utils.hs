@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -8,6 +9,7 @@ module Utils where
 import           Chainweb.Api.ChainId
 import           Chainweb.Api.ChainwebMeta
 import           Chainweb.Api.PactCommand
+import           Chainweb.Api.Sig
 import           Chainweb.Api.Transaction
 import           Control.Error
 import           Control.Exception
@@ -16,6 +18,7 @@ import           Data.Aeson
 import qualified Data.Aeson as A
 import           Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Char8 as A (endOfInput, parseOnly, scientific)
+import           Data.Bifunctor
 import           Data.Char
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
@@ -37,6 +40,7 @@ import           Kadena.SigningTypes
 import           GHC.Generics
 import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
+import           Pact.Types.SigData
 import           System.Directory
 import           System.FilePath
 ------------------------------------------------------------------------------
@@ -80,7 +84,7 @@ lensyConstructorToNiceJson :: String -> String
 lensyConstructorToNiceJson fieldName = dropWhile (=='_') $ dropWhile (/='_') $ dropWhile (=='_') fieldName
 
 newtype MaybeBatch a = MaybeBatch { unMaybeBatch :: [a] }
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Functor)
 
 instance FromJSON a => FromJSON (MaybeBatch a) where
   parseJSON v =
@@ -92,13 +96,63 @@ instance FromJSON a => FromJSON (MaybeBatch a) where
           Just cs -> pure $ MaybeBatch cs
       _ -> MaybeBatch . (:[]) <$> parseJSON v
 
-parseAsJsonOrYaml :: FromJSON a => [LB.ByteString] -> Either [String] [a]
+--parseAsJsonOrYaml :: FromJSON a => [LB.ByteString] -> Either [String] [a]
+--parseAsJsonOrYaml bss =
+--  case partitionEithers $ A.eitherDecode <$> bss of
+--    ([],lvs) -> Right $ concat $ map unMaybeBatch lvs
+--    (esJ,_) -> case partitionEithers $ YA.decode1Strict . LB.toStrict <$> bss of
+--      ([],rvs) -> Right $ concat $ map unMaybeBatch rvs
+--      (esY,_) -> Left (map show esJ ++ map show esY)
+
+--parseJsonOrYamlCommand :: [LB.ByteString] -> Either [String] [Transaction]
+--parseJsonOrYamlCommand bss =
+parseAsJsonOrYaml :: [LB.ByteString] -> Either [String] [Transaction]
 parseAsJsonOrYaml bss =
   case partitionEithers $ A.eitherDecode <$> bss of
     ([],lvs) -> Right $ concat $ map unMaybeBatch lvs
-    (esJ,_) -> case partitionEithers $ YA.decode1Strict . LB.toStrict <$> bss of
+    (esJ,_) -> case partitionEithers $ parseTransactionViaSigData <$> bss of
       ([],rvs) -> Right $ concat $ map unMaybeBatch rvs
       (esY,_) -> Left (map show esJ ++ map show esY)
+
+parseTransactionViaSigData :: LB.ByteString -> Either String (MaybeBatch Transaction)
+parseTransactionViaSigData bs = do
+  MaybeBatch sds <- first show $ YA.decode1Strict $ LB.toStrict bs
+  fmap MaybeBatch $ sequence $ map sigDataToTransaction sds
+
+-- | Converts Pact's 'SigData' type to chainweb-api's 'Transaction'
+-- TODO SigData overlaps with types in the signing API as well. At some point we
+-- need to restructure all this into a much more holistic set of types.
+sigDataToTransaction :: SigData Text -> Either String Transaction
+sigDataToTransaction sd = do
+    cmdText <- note "Error: SigData 'cmd' field not found" $ _sigDataCmd sd
+    pc <- eitherDecodeStrict $ T.encodeUtf8 cmdText
+    sigs <- note "Error: SigData has missing signatures" $ sequence $ map snd $ _sigDataSigs sd
+    pure $ mkTransaction pc (map userSigToSig sigs)
+
+-- | Converts chainweb-api's 'Sig' type to Pact's 'UserSig'.
+userSigToSig :: UserSig -> Sig
+userSigToSig = Sig . _usSig
+
+-- | Converts Pact's 'UserSig' type to chainweb-api's 'Sig'.
+sigToUserSig :: Sig -> UserSig
+sigToUserSig = UserSig . unSig
+
+--data SigData a = SigData
+--  { _sigDataHash :: PactHash
+--  , _sigDataSigs :: [(PublicKeyHex, Maybe UserSig)]
+--  -- ^ This is not a map because the order must be the same as the signers inside the command.
+--  , _sigDataCmd :: Maybe a
+--  } deriving (Eq,Show,Generic)
+--mkTransaction :: PactCommand -> [Sig] -> Transaction
+--mkTransaction pc sigs =
+--    Transaction (Hash h) sigs pc (decodeUtf8 cmdBytes)
+--  where
+--    cmdBytes = BL.toStrict $ encode pc
+--
+--    -- This function only returns Left when one of the first two args is
+--    -- invalid. In this case we're supplying them both as constants, so the
+--    -- incomplete pattern match is safe here.
+--    Right h = blake2b 32 mempty cmdBytes
 
 niceQuoteEncodeYaml :: ToJSON a => a -> LB.ByteString
 niceQuoteEncodeYaml a = YA.encodeValue' senc Y.UTF8 [toJSON a]

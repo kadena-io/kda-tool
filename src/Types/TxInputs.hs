@@ -58,7 +58,7 @@ execInputsPairs ei = mconcat
 data TxInputs = TxInputs
   { _txInputs_type :: PactTxType
   , _txInputs_payload :: Either ContMsg ExecInputs
-  , _txInputs_signers :: [ApiSigner]
+  , _txInputs_signers :: Maybe [ApiSigner]
   , _txInputs_nonce :: Maybe Text
   , _txInputs_meta :: ApiPublicMeta
   , _txInputs_networkId :: NetworkId
@@ -80,7 +80,7 @@ txInputsToApiReq txi = do
       Nothing
       Nothing
       Nothing
-      (Just $ _txInputs_signers txi)
+      (Just $ fromMaybe [] $ _txInputs_signers txi)
       (_txInputs_nonce txi)
       (Just $ _txInputs_meta txi)
       n
@@ -98,7 +98,7 @@ txInputsToApiReq txi = do
         (hush c)
         Nothing
         Nothing
-        (Just $ _txInputs_signers txi)
+        (Just $ fromMaybe [] $ _txInputs_signers txi)
         (_txInputs_nonce txi)
         (Just $ _txInputs_meta txi)
         n
@@ -112,7 +112,7 @@ getOrReadFile parser (Right fp) = do
 instance ToJSON TxInputs where
   toJSON ti = A.Object $ payloadPairs <> mconcat
     [ "type" .= _txInputs_type ti
-    , "signers" .= _txInputs_signers ti
+    , "signers" .= fromMaybe [] (_txInputs_signers ti)
     , "nonce" .?= _txInputs_nonce ti
 
     -- TODO Not sure if this should be "meta" or "publicMeta". I think it should
@@ -153,7 +153,7 @@ instance FromJSON TxInputs where
         TxInputs
           <$> pure t
           <*> pure p
-          <*> o .: "signers"
+          <*> o .:? "signers"
           <*> o .:? "nonce"
           <*> pure m
           <*> o .: "networkId"

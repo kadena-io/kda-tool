@@ -51,7 +51,7 @@ writeCombined (cmd, fsigs@(p:ps)) = do
   let (fname,sigs) = case ps of
         [] -> (dropExtension $ fst p, snd p)
         _ ->
-          let fp = intercalate "-" (sort $ map (dropExtension . fst) fsigs)
+          let fp = intercalate "-" (sort $ map (dropExtension . takeFileName . fst) fsigs)
           in (fp, combineSigs $ map snd fsigs)
   fp <- saveCommandSigData fname $ CommandSigData sigs cmd
   pure $ Just fp

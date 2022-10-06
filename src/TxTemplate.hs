@@ -24,6 +24,8 @@ import qualified Text.Mustache.Types as MU
 import           Text.Mustache
 import           Text.Mustache.Types
 ------------------------------------------------------------------------------
+import           Utils
+------------------------------------------------------------------------------
 
 data FillFailure
   = FillIncomplete
@@ -137,7 +139,7 @@ parseTextValue (k,vt) = do
 parseValueValue :: (Text, A.Value) -> Either String (Text, MU.Value)
 parseValueValue (k,v) = do
     v2 <- case v of
-      A.Number n -> pure $ A.String $ T.pack $ show n
+      A.Number n -> pure $ A.String $ scientificToText n
       _ -> pure v
       -- A.String _ -> pure v
       -- A.Array _ -> pure v

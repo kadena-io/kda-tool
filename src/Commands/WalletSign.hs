@@ -9,15 +9,14 @@ module Commands.WalletSign
 import           Control.Error
 import           Control.Lens
 import           Control.Monad.Except
-import           Data.Aeson hiding (Encoding)
 import           Data.Aeson.Lens
 import           Data.List
 import qualified Data.Set as S
 import           Data.String.Conv
-import qualified Data.Text.IO as T
 import qualified Data.YAML.Aeson as YA
 import           Kadena.SigningApi
 import           Kadena.SigningTypes
+import           Katip
 import           Pact.Types.Capability
 import           Pact.Types.ChainMeta
 import           Pact.Types.Command
@@ -98,14 +97,32 @@ signYamlFiles env args = do
           eresps <- runExceptT $ forM csds $ \csd -> do
             sreq <- hoistEither $ csdToSigningRequest csd
             let clientEnv = mkClientEnv (_env_httpManager env) chainweaverUrl
-            fmapLT show $ ExceptT $ runClientM (oldSign sreq) clientEnv
+            resp <- ExceptT $ handleClientError env =<< runClientM (oldSign sreq) clientEnv
+            let cmd = _signingResponse_body resp
+            pure (resp, length (_cmdSigs cmd) - countSigs csd)
           case eresps of
-            Left e -> error e
-            Right resps -> do
-              forM_ (zip files resps) $ \(f,r) -> do
-                T.writeFile f $ toS $ encode $ _signingResponse_body r
+            Left e -> do
+              putStrLn $ "Signing failed: " <> e
+            Right (resps) -> do
+              fileCounts <- forM (zip files resps) $ \(f,(r,numSigs)) -> do
+                let cmd = _signingResponse_body r
+                fOut <- writeJson (dropExtension f) cmd
+                pure (fOut, numSigs)
+              printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
     (es,_) -> do
       error $ printf "Got %d errors while parsing files\n%s" (length es) (unlines es)
+
+handleClientError :: Env -> Either ClientError SigningResponse -> IO (Either String SigningResponse)
+handleClientError env (Left fr) = do
+  logEnv env DebugS $ logStr $ "Error: wallet signing failed:\n" <> (show fr)
+  let msg = case fr of
+              FailureResponse _ resp -> toS $ responseBody resp
+              DecodeFailure _ _ -> "Decode Failure"
+              UnsupportedContentType _ _ -> "Unsupported Content Type"
+              InvalidContentTypeHeader _ -> "Invalid Content Type Header"
+              ConnectionError _ -> "Connection Error"
+  pure $ Left msg
+handleClientError _ (Right sr) = pure $ Right sr
 
 csdToSigningRequest :: CommandSigData -> Either String SigningRequest
 csdToSigningRequest csd = do

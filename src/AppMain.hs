@@ -71,7 +71,7 @@ appMain = do
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args
-      Quicksign args -> quicksignCommand theEnv args
+      WalletSign args -> walletSignCommand theEnv args
 
   where
     opts = info (envP <**> helper) $ mconcat

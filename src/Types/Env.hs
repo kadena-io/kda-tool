@@ -272,8 +272,6 @@ data SubCommand
   | Send NodeTxCmdArgs
   | Sign SignArgs
   | WalletSign WalletSignArgs
---  | Batch [FilePath]
---  | Quicksign
   deriving (Eq,Ord,Show)
 
 data Args = Args
@@ -352,8 +350,8 @@ signingCommands = mconcat
       (progDesc "Combine signatures from multiple files"))
   , command "sign" (info (Sign <$> signP)
       (progDesc "Sign transactions"))
-  , command "quicksign" (info (WalletSign <$> walletSignP)
-      (progDesc "Send transactions to a wallet for signing using quicksign"))
+  , command "wallet-sign" (info (WalletSign <$> walletSignP)
+      (progDesc "Send transactions to a wallet for signing"))
   , commandGroup "Transaction Signing Commands"
   , hidden
   ]

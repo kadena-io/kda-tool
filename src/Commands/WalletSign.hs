@@ -13,6 +13,8 @@ import           Data.Aeson.Lens
 import           Data.List
 import qualified Data.Set as S
 import           Data.String.Conv
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Data.YAML.Aeson as YA
 import           Kadena.SigningApi
 import           Kadena.SigningTypes
@@ -94,21 +96,38 @@ signYamlFiles env args = do
               --  QSR_Response [CSDResponse] -> print $ unQuickSignResponse resp
               --  QSR_Error e -> error $ "Got error from QuickSign:\n" <> show e
         OldSign -> do
-          eresps <- runExceptT $ forM csds $ \csd -> do
-            sreq <- hoistEither $ csdToSigningRequest csd
-            let clientEnv = mkClientEnv (_env_httpManager env) chainweaverUrl
-            resp <- ExceptT $ handleClientError env =<< runClientM (oldSign sreq) clientEnv
-            let cmd = _signingResponse_body resp
-            pure (resp, length (_cmdSigs cmd) - countSigs csd)
-          case eresps of
-            Left e -> do
-              putStrLn $ "Signing failed: " <> e
-            Right (resps) -> do
-              fileCounts <- forM (zip files resps) $ \(f,(r,numSigs)) -> do
-                let cmd = _signingResponse_body r
-                fOut <- writeJson (dropExtension f) cmd
-                pure (fOut, numSigs)
-              printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
+          let numTxs = length csds
+          continue <- if numTxs == 1
+            then pure True
+            else do
+              hSetBuffering stdout NoBuffering
+              putStr $ concat
+                [ "The old signing API cannot sign multiple transactions. This signing operation\n"
+                , printf "will require you to approve %d separate transactions.\n" numTxs
+                , "Do you want to continue (y/n)? "
+                ]
+              t <- T.getLine
+              pure (T.toCaseFold t == T.toCaseFold "y")
+
+          if continue
+            then do
+              eresps <- runExceptT $ forM (zip files csds) $ \(f, csd) -> do
+                sreq <- hoistEither $ csdToSigningRequest csd
+                let clientEnv = mkClientEnv (_env_httpManager env) chainweaverUrl
+                lift $ printf "Sending tx from file %s to your wallet.  Switch to your wallet app to approve.\n" f
+                resp <- ExceptT $ handleClientError env =<< runClientM (oldSign sreq) clientEnv
+                let cmd = _signingResponse_body resp
+                pure (resp, length (_cmdSigs cmd) - countSigs csd)
+              case eresps of
+                Left e -> do
+                  putStrLn $ "Signing failed: " <> e
+                Right (resps) -> do
+                  fileCounts <- forM (zip files resps) $ \(f,(r,numSigs)) -> do
+                    let cmd = _signingResponse_body r
+                    fOut <- writeJson (dropExtension f) cmd
+                    pure (fOut, numSigs)
+                  printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
+            else putStrLn "Operation canceled"
     (es,_) -> do
       error $ printf "Got %d errors while parsing files\n%s" (length es) (unlines es)
 

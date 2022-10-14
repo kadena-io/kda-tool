@@ -30,6 +30,7 @@ import           Commands.Mempool
 import           Commands.Poll
 import           Commands.Send
 import           Commands.Sign
+import           Commands.WalletSign
 import           Types.Env
 ------------------------------------------------------------------------------
 
@@ -70,6 +71,7 @@ appMain = do
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args
+      Quicksign args -> quicksignCommand theEnv args
 
   where
     opts = info (envP <**> helper) $ mconcat

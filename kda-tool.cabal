@@ -26,6 +26,7 @@ library
     Commands.Poll
     Commands.Send
     Commands.Sign
+    Commands.WalletSign
     Keys
     Logger
     TxTemplate
@@ -80,6 +81,8 @@ library
     , resource-pool
     , retry
     , scientific
+    , servant
+    , servant-client
     , stm
     , stm-linkedlist
     , string-conv

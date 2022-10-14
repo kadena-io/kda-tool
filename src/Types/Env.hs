@@ -106,6 +106,14 @@ data SignArgs = SignArgs
   , _signArgs_quiet :: Bool
   } deriving (Eq,Ord,Show,Read)
 
+data WalletSignMethod = OldSign | Quicksign
+  deriving (Eq,Ord,Show,Read)
+
+data WalletSignArgs = WalletSignArgs
+  { _walletSignArgs_files :: [FilePath]
+  , _walletSignArgs_method :: WalletSignMethod
+  } deriving (Eq,Ord,Show,Read)
+
 encodingOption :: Parser Encoding
 encodingOption = option (maybeReader $ textToEncoding . T.pack) $ mconcat
   [ short 'e'
@@ -147,6 +155,15 @@ quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode (don't echo keys 
 
 signP :: Parser SignArgs
 signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP <*> quietP
+
+walletMethodP :: Parser WalletSignMethod
+walletMethodP = flag Quicksign OldSign $ mconcat
+  [ long "old"
+  , help "Sign with old single-tx wallet signing API"
+  ]
+
+walletSignP :: Parser WalletSignArgs
+walletSignP = WalletSignArgs <$> many txFileP <*> walletMethodP
 
 data NodeTxCmdArgs = NodeTxCmdArgs
   { _nodeTxCmdArgs_files :: [FilePath]
@@ -254,6 +271,7 @@ data SubCommand
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
+  | WalletSign WalletSignArgs
 --  | Batch [FilePath]
 --  | Quicksign
   deriving (Eq,Ord,Show)
@@ -334,6 +352,8 @@ signingCommands = mconcat
       (progDesc "Combine signatures from multiple files"))
   , command "sign" (info (Sign <$> signP)
       (progDesc "Sign transactions"))
+  , command "quicksign" (info (WalletSign <$> walletSignP)
+      (progDesc "Send transactions to a wallet for signing using quicksign"))
   , commandGroup "Transaction Signing Commands"
   , hidden
   ]

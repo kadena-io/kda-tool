@@ -15,6 +15,7 @@ import qualified Data.ByteArray as BA
 import           Data.List
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.Text (Text)
 import           Data.Text.Encoding
 import qualified Data.YAML.Aeson as YA
 import           Kadena.SigningTypes
@@ -23,7 +24,6 @@ import           Pact.Types.SigData
 import           System.Exit
 import           System.FilePath
 import           System.IO
-import           System.IO.Echo
 import           Text.Printf
 ------------------------------------------------------------------------------
 import           Keys
@@ -32,12 +32,8 @@ import           Types.Env
 import           Utils
 ------------------------------------------------------------------------------
 
-withQuiet :: Bool -> IO () -> IO ()
-withQuiet isQuiet = if isQuiet then withoutInputEcho else id
-
 signCommand :: SignArgs -> IO ()
-signCommand args = withQuiet (_signArgs_quiet args) $ do
-  let keyfile = _signArgs_keyFile args
+signCommand args = do
   let index = _signArgs_keyInd args
   let files = _signArgs_files args
 
@@ -50,7 +46,7 @@ signCommand args = withQuiet (_signArgs_quiet args) $ do
   if all hasYamlExtension files
     then do
       res <- runExceptT $ do
-        kh <- lift $ fileOrStdin keyfile
+        (keyfile, kh) <- lift $ getKeyFile $ _signArgs_keyFile args
         kkey <- fmapLT (\e -> "Error reading key material from " <> keyfile <> ": " <> e) $ ExceptT $ readKadenaKey kh
         case files of
           [] -> throwError "No files to sign"
@@ -81,8 +77,7 @@ signYamlFile kkey mindex msgFile = do
           cmd = _csd_cmd csd
           signingKeys = S.fromList $ map fst $ unSignatureList sigs
       case kkey of
-        HDRoot xprv -> do
-          tryHdIndex msgFile csd xprv mindex
+        HDRoot xprv mpass -> tryHdIndex msgFile csd xprv mpass mindex
         PlainKeyPair sec pub -> do
           let pubHex = PublicKeyHex $ toB16 $ BA.convert pub
           if S.member pubHex signingKeys
@@ -99,15 +94,16 @@ tryHdIndex
   :: FilePath
   -> CommandSigData
   -> Crypto.XPrv
+  -> Maybe Text
   -> Maybe KeyIndex
   -> IO (Maybe (FilePath, Int))
-tryHdIndex msgFile csd xprv mind = do
+tryHdIndex msgFile csd xprv mpass mind = do
   let startingSigs = _csd_sigs csd
       cmd = _csd_cmd csd
       cmdBS = encodeUtf8 cmd
       signingKeys = S.fromList $ map fst $ unSignatureList startingSigs
-      signPairs = getSigningInds signingKeys xprv (maybe [0..100] (:[]) mind)
-      f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec (calcHash cmdBS))
+      signPairs = getSigningInds signingKeys xprv mpass (maybe [0..100] (:[]) mind)
+      f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec (fromMaybe "" mpass) (calcHash cmdBS))
       newSigs = foldr f startingSigs signPairs
   let csd2 = CommandSigData newSigs cmd
       num1 = countSigs csd
@@ -124,11 +120,12 @@ calcHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
 getSigningInds
   :: Set PublicKeyHex
   -> Crypto.XPrv
+  -> Maybe Text
   -> [KeyIndex]
   -> [(EncryptedPrivateKey, PublicKeyHex)]
-getSigningInds signingKeys xprv inds = filter inSigningKeys pairs
+getSigningInds signingKeys xprv mpass inds = filter inSigningKeys pairs
   where
-    pairs = map (mkPair . generateCryptoPairFromRoot xprv "") inds
+    pairs = map (mkPair . generateCryptoPairFromRoot xprv (fromMaybe "" mpass)) inds
     mkPair (esec, pub) = (esec, PublicKeyHex $ pubKeyToText pub)
     inSigningKeys pair = S.member (snd pair) signingKeys
 

@@ -16,7 +16,6 @@ import           Crypto.Error
 import qualified Crypto.PubKey.Ed25519 as ED25519
 import qualified Crypto.Random.Entropy
 import           Data.Aeson
-import           Data.Aeson.Lens
 import           Data.Bifunctor
 import           Data.Bits ((.|.))
 import           Data.ByteArray (ByteArrayAccess)
@@ -34,6 +33,7 @@ import           Data.Word (Word32)
 import qualified Data.YAML.Aeson as YA
 import           GHC.Natural
 import           System.IO
+import           System.IO.Echo
 import           Text.Read (readMaybe)
 ------------------------------------------------------------------------------
 import           Utils
@@ -122,13 +122,8 @@ newtype WordKey = WordKey { _unWordKey :: Int }
 wordsToPhraseMap :: [Text] -> Map.Map WordKey Text
 wordsToPhraseMap = Map.fromList . zip [WordKey 1 ..]
 
-data KeyMaterial
-  = RecoveryPhrase MnemonicPhrase KeyIndex
-  | RawKeyPair ED25519.SecretKey ED25519.PublicKey
-  deriving (Eq,Show)
-
 data KadenaKey
-  = HDRoot Crypto.XPrv
+  = HDRoot Crypto.XPrv (Maybe Text)
   | PlainKeyPair ED25519.SecretKey ED25519.PublicKey
 
 data KeyPairYaml = KeyPairYaml
@@ -152,41 +147,29 @@ readKadenaKey h = do
         Just phrase -> do
            case phraseToEitherSeed phrase of
              Left _ -> pure $ Left "failed converting phrase to seed"
-             Right seed -> pure $ Right $ HDRoot $ seedToRoot seed ""
-    Right kpy -> do
-      let mres = do
-            pub <- maybeCryptoError . ED25519.publicKey =<< hush (fromB16 $ kpyPublic kpy)
-            sec <- maybeCryptoError . ED25519.secretKey =<< hush (fromB16 $ kpySecret kpy)
-            pure $ PlainKeyPair sec pub
-      pure $ note "not a valid ED25519 key pair" mres
-
-readKeyMaterial :: Handle -> Maybe KeyIndex -> IO (Maybe KeyMaterial)
-readKeyMaterial h mindex = do
-  t <- T.strip <$> T.hGetContents h
-  let res = case mindex of
-        Nothing -> do
-          v :: Value <- hush $ YA.decode1Strict $ T.encodeUtf8 t
-          rawPub <- hush . fromB16 =<< (v ^? key "public" . _String)
-          rawSec <- hush . fromB16 =<< (v ^? key "secret" . _String)
-          pub <- maybeCryptoError $ ED25519.publicKey rawPub
-          sec <- maybeCryptoError $ ED25519.secretKey rawSec
-          pure $ RawKeyPair sec pub
-        Just ind -> (\p -> RecoveryPhrase p ind) <$> mkMnemonicPhrase (T.words t)
-  return res
+             Right seed -> pure $ Right $ HDRoot (seedToRoot seed "") Nothing
+    Right (String s) -> do
+      case Crypto.xprv =<< fmapL T.unpack (B16.decodeBase16 (T.encodeUtf8 s)) of
+        Left _ -> pure $ Left "Could not decode HD key"
+        Right xprv -> do
+          hSetBuffering stderr NoBuffering
+          hPutStr stderr "Enter password to decrypt key: "
+          pass <- T.pack <$> withoutInputEcho getLine
+          hPutStrLn stderr ""
+          pure $ Right $ HDRoot xprv (Just pass)
+    Right v@(Object _) -> case fromJSON v of
+      Error _ -> pure $ Left "Object is not valid key material"
+      Success kpy -> do
+        let mres = do
+              pub <- maybeCryptoError . ED25519.publicKey =<< hush (fromB16 $ kpyPublic kpy)
+              sec <- maybeCryptoError . ED25519.secretKey =<< hush (fromB16 $ kpySecret kpy)
+              pure $ PlainKeyPair sec pub
+        pure $ note "not a valid ED25519 key pair" mres
+    Right _ -> pure $ Left "Invalid JSON type for key material"
 
 genPairFromPhrase :: MnemonicPhrase -> KeyIndex -> (EncryptedPrivateKey, PublicKey)
 genPairFromPhrase phrase idx =
   generateCryptoPairFromRoot (mnemonicToRoot phrase) "" idx
-
-signWithMaterial :: KeyMaterial -> ByteString -> ByteString
-signWithMaterial (RecoveryPhrase phrase ind) msg =
-  let (xprv, _) = genPairFromPhrase phrase ind
-   in T.encodeUtf8 $ sigToText $ signHD xprv msg
-signWithMaterial (RawKeyPair secret _) msg = BA.convert $ sign secret msg
-
-getMaterialPublic :: KeyMaterial -> Text
-getMaterialPublic (RecoveryPhrase phrase ind) = pubKeyToText $ snd $ genPairFromPhrase phrase ind
-getMaterialPublic (RawKeyPair _ pub) = toB16 $ BA.convert pub
 
 newtype PublicKey = PublicKey ByteString
   deriving (Show, Eq)
@@ -221,9 +204,9 @@ sign :: ED25519.SecretKey -> ByteString -> ED25519.Signature
 sign secret msg =
   ED25519.sign secret (ED25519.toPublic secret) msg
 
-signHD :: EncryptedPrivateKey -> ByteString -> Signature
-signHD (EncryptedPrivateKey xprv) msg =
-  Signature $ Crypto.sign @ByteString "" xprv msg
+signHD :: EncryptedPrivateKey -> Text -> ByteString -> Signature
+signHD (EncryptedPrivateKey xprv) pass msg =
+  Signature $ Crypto.sign @ByteString (T.encodeUtf8 pass) xprv msg
 
 verify :: PublicKey -> Signature -> ByteString -> Bool
 verify (PublicKey pub) (Signature sig) msg = Crypto.verify xpub msg sig

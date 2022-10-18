@@ -27,7 +27,12 @@ import qualified Data.Text as T
 import           Katip
 import           Network.HTTP.Client (Manager)
 import           Options.Applicative
-import           Options.Applicative.Help.Pretty
+import           Options.Applicative.Help.Pretty hiding ((</>))
+import           System.Directory
+import           System.FilePath
+import           System.IO
+import           System.IO.Echo
+import           System.Info
 import           System.Random.MWC
 ------------------------------------------------------------------------------
 import           Keys
@@ -99,11 +104,21 @@ logEnv e = logLE (_env_logEnv e)
 logLE :: MonadIO m => LogEnv -> Severity -> LogStr -> m ()
 logLE le sev s = runKatipT le $ logMsg mempty sev s
 
+data ChainweaverFile = ChainweaverFile
+  deriving (Eq,Ord,Show,Read)
+
 data SignArgs = SignArgs
-  { _signArgs_keyFile :: FilePath
+  { _signArgs_keyFile :: Either FilePath ChainweaverFile
   , _signArgs_keyInd :: Maybe KeyIndex
   , _signArgs_files :: [FilePath]
-  , _signArgs_quiet :: Bool
+  } deriving (Eq,Ord,Show,Read)
+
+data WalletSignMethod = OldSign | Quicksign
+  deriving (Eq,Ord,Show,Read)
+
+data WalletSignArgs = WalletSignArgs
+  { _walletSignArgs_files :: [FilePath]
+  , _walletSignArgs_method :: WalletSignMethod
   } deriving (Eq,Ord,Show,Read)
 
 encodingOption :: Parser Encoding
@@ -142,11 +157,45 @@ keyFileP = strOption $ mconcat
   , completer $ fileExtCompleter [".kda", ".phrase"]
   ]
 
-quietP :: Parser Bool
-quietP = switch (long "quiet" <> short 'q' <> help "Quiet mode (don't echo keys entered on stdin)")
+getChainweaverDir :: IO FilePath
+getChainweaverDir = do
+  home <- getHomeDirectory
+  pure $ case os of
+    "darwin" -> home </> "Library" </> "Application Support" </> "io.kadena.chainweaver"
+    _ -> home </> ".local" </> "share" </> "chainweaver"
+
+getKeyFile :: Either FilePath ChainweaverFile -> IO (FilePath, Handle)
+getKeyFile (Left fp) = do
+  let fpStr = case fp of
+        "-" -> "stdin"
+        _ -> fp
+  h <- withoutInputEcho $ fileOrStdin fp
+  pure (fpStr, h)
+getKeyFile (Right ChainweaverFile) = do
+  d <- getChainweaverDir
+  let fp = d </> "BIPStorage_RootKey"
+  h <- openFile fp ReadMode
+  pure (fp, h)
+
+keyFileOrChainweaverP :: Parser (Either FilePath ChainweaverFile)
+keyFileOrChainweaverP = flag' (Right ChainweaverFile) opts <|> fmap Left keyFileP
+  where
+    opts = mconcat
+      [ long "chainweaver"
+      , help "Sign using key stored by desktop Chainweaver on your filesystem"
+      ]
 
 signP :: Parser SignArgs
-signP = SignArgs <$> keyFileP <*> optional keyIndexP <*> many txFileP <*> quietP
+signP = SignArgs <$> keyFileOrChainweaverP <*> optional keyIndexP <*> many txFileP
+
+walletMethodP :: Parser WalletSignMethod
+walletMethodP = flag Quicksign OldSign $ mconcat
+  [ long "old"
+  , help "Sign with old single-tx wallet signing API"
+  ]
+
+walletSignP :: Parser WalletSignArgs
+walletSignP = WalletSignArgs <$> many txFileP <*> walletMethodP
 
 data NodeTxCmdArgs = NodeTxCmdArgs
   { _nodeTxCmdArgs_files :: [FilePath]
@@ -248,14 +297,13 @@ data SubCommand
   | Tx TxArgs
   | GenTx GenTxArgs
   | Keygen KeyType
-  | ListKeys FilePath KeyIndex
+  | ListKeys (Either FilePath ChainweaverFile) KeyIndex
   | Local NodeTxCmdArgs
   | Mempool HostPort Text ChainId
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
---  | Batch [FilePath]
---  | Quicksign
+  | WalletSign WalletSignArgs
   deriving (Eq,Ord,Show)
 
 data Args = Args
@@ -298,16 +346,13 @@ keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
     rdr = T.unpack . keyTypeToText
 
 listKeysP :: Parser SubCommand
-listKeysP = ListKeys <$> hdKeyFileP <*> indP
+listKeysP = ListKeys <$> keyFileOrChainweaverP <*> indP
   where
     keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
-    hdKeyFileP = strArgument $ mconcat
-      [ help "HD key file"
-      , metavar "KEY_FILE"
-      , completer $ fileExtCompleter [".phrase"]
-      ]
-    indP = argument keyIndexReader $ mconcat
-      [ help "Maximum key index"
+    indP = option keyIndexReader $ mconcat
+      [ long "index"
+      , short 'i'
+      , help "Maximum key index"
       , metavar "KEY_INDEX"
       ]
 
@@ -334,6 +379,8 @@ signingCommands = mconcat
       (progDesc "Combine signatures from multiple files"))
   , command "sign" (info (Sign <$> signP)
       (progDesc "Sign transactions"))
+  , command "wallet-sign" (info (WalletSign <$> walletSignP)
+      (progDesc "Send transactions to a wallet for signing"))
   , commandGroup "Transaction Signing Commands"
   , hidden
   ]

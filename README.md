@@ -2,6 +2,8 @@
 
 A command line tool for automating all-things Kadena.
 
+![Example Animation](https://imgur.com/a/By4KVir)
+
 ## Requirements
 
 ### Shell Composability

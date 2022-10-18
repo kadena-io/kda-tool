@@ -1,6 +1,5 @@
-cabal-version:       >=1.10
 name:                kda-tool
-version:             0.1.0.0
+version:             0.1
 synopsis:            Kadena command line tool
 -- description:
 -- bug-reports:
@@ -11,6 +10,7 @@ maintainer:          mightybyte@gmail.com
 copyright:           Kadena LLC
 -- category:
 build-type:          Simple
+cabal-version:       >=1.10
 
 library
   -- other-modules:

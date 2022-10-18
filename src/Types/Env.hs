@@ -297,7 +297,7 @@ data SubCommand
   | Tx TxArgs
   | GenTx GenTxArgs
   | Keygen KeyType
-  | ListKeys (Either FilePath ChainweaverFile) KeyIndex
+  | ListKeys (Either FilePath ChainweaverFile) (Maybe KeyIndex)
   | Local NodeTxCmdArgs
   | Mempool HostPort Text ChainId
   | Poll NodeTxCmdArgs
@@ -328,7 +328,7 @@ configFileP :: Parser FilePath
 configFileP = strOption $ mconcat
   [ long "config-file"
   , short 'c'
-  , metavar "CONFIG_FILE"
+  , metavar "FILE"
   , help "JSON file with general configuration options"
   , completer $ fileExtCompleter [".json"]
   ]
@@ -346,7 +346,7 @@ keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat
     rdr = T.unpack . keyTypeToText
 
 listKeysP :: Parser SubCommand
-listKeysP = ListKeys <$> keyFileOrChainweaverP <*> indP
+listKeysP = ListKeys <$> keyFileOrChainweaverP <*> optional indP
   where
     keyIndexReader = maybeReader (fmap KeyIndex . readNatural)
     indP = option keyIndexReader $ mconcat

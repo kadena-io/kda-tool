@@ -7,6 +7,7 @@ module Keys where
 
 ------------------------------------------------------------------------------
 import qualified Cardano.Crypto.Wallet as Crypto
+import           Control.Applicative
 import           Control.Error
 import           Control.Lens
 import           Control.Monad.IO.Class
@@ -141,22 +142,8 @@ readKadenaKey :: Handle -> IO (Either String KadenaKey)
 readKadenaKey h = do
   t <- T.strip <$> T.hGetContents h
   case YA.decode1Strict $ T.encodeUtf8 t of
-    Left _ -> do
-      case mkMnemonicPhrase $ T.words t of
-        Nothing -> pure $ Left "not a valid mnemonic phrase"
-        Just phrase -> do
-           case phraseToEitherSeed phrase of
-             Left _ -> pure $ Left "failed converting phrase to seed"
-             Right seed -> pure $ Right $ HDRoot (seedToRoot seed "") Nothing
-    Right (String s) -> do
-      case Crypto.xprv =<< fmapL T.unpack (B16.decodeBase16 (T.encodeUtf8 s)) of
-        Left _ -> pure $ Left "Could not decode HD key"
-        Right xprv -> do
-          hSetBuffering stderr NoBuffering
-          hPutStr stderr "Enter password to decrypt key: "
-          pass <- T.pack <$> withoutInputEcho getLine
-          hPutStrLn stderr ""
-          pure $ Right $ HDRoot xprv (Just pass)
+    Right (String s) -> runExceptT $
+      ExceptT (decodeMnemonic t) <|> ExceptT (decodeEncryptedMnemonic s)
     Right v@(Object _) -> case fromJSON v of
       Error _ -> pure $ Left "Object is not valid key material"
       Success kpy -> do
@@ -166,6 +153,27 @@ readKadenaKey h = do
               pure $ PlainKeyPair sec pub
         pure $ note "not a valid ED25519 key pair" mres
     Right _ -> pure $ Left "Invalid JSON type for key material"
+    Left _ -> pure $ Left "Could not parse key material"
+
+decodeMnemonic :: Text -> IO (Either String KadenaKey)
+decodeMnemonic t = do
+  case mkMnemonicPhrase $ T.words t of
+    Nothing -> pure $ Left "not a valid mnemonic phrase"
+    Just phrase -> do
+       case phraseToEitherSeed phrase of
+         Left _ -> pure $ Left "failed converting phrase to seed"
+         Right seed -> pure $ Right $ HDRoot (seedToRoot seed "") Nothing
+
+decodeEncryptedMnemonic :: Text -> IO (Either String KadenaKey)
+decodeEncryptedMnemonic t = do
+  case Crypto.xprv =<< fmapL T.unpack (B16.decodeBase16 (T.encodeUtf8 t)) of
+    Left _ -> pure $ Left "Could not decode HD key"
+    Right xprv -> do
+      hSetBuffering stderr NoBuffering
+      hPutStr stderr "Enter password to decrypt key: "
+      pass <- T.pack <$> withoutInputEcho getLine
+      hPutStrLn stderr ""
+      pure $ Right $ HDRoot xprv (Just pass)
 
 genPairFromPhrase :: MnemonicPhrase -> KeyIndex -> (EncryptedPrivateKey, PublicKey)
 genPairFromPhrase phrase idx =

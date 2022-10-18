@@ -14,8 +14,8 @@ import           Types.Env
 import           Utils
 ------------------------------------------------------------------------------
 
-listKeysCommand :: Either FilePath ChainweaverFile -> KeyIndex -> IO ()
-listKeysCommand efc ind = do
+listKeysCommand :: Either FilePath ChainweaverFile -> Maybe KeyIndex -> IO ()
+listKeysCommand efc mInd = do
   (keyfile, h) <- getKeyFile efc
   ekey <- readKadenaKey h
   case ekey of
@@ -23,6 +23,7 @@ listKeysCommand efc ind = do
     Right (HDRoot xprv mpass) -> do
       let pass = fromMaybe "" mpass
       let getAndShow n = tshow (unKeyIndex n) <> ": " <> pubKeyToText (snd $ generateCryptoPairFromRoot xprv pass n)
+      let ind = fromMaybe 5 mInd
       mapM_ (T.putStrLn . getAndShow) [0..ind]
     Right (PlainKeyPair _ pub) -> do
       let pubHex = toB16 $ BA.convert pub

@@ -2,7 +2,7 @@
 
 A command line tool for automating all-things Kadena.
 
-![Example Animation](https://imgur.com/a/gS7LQO1)
+![Example Animation](https://imgur.com/b0OzyQe)
 
 ## Requirements
 

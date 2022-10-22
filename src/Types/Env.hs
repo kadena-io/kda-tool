@@ -249,7 +249,7 @@ templateFileP :: Parser FilePath
 templateFileP = strArgument $ mconcat
   [ help "YAML file with a mustache transaction template"
   , metavar "TEMPLATE_FILE"
-  , completer $ fileExtCompleter [".yaml"]
+  , completer $ fileExtCompleter [".yaml", ".ktpl"]
   ]
 
 filePatP :: Parser FilePath

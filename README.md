@@ -4,31 +4,158 @@ A command line tool for automating all-things Kadena.
 
 ![Example Animation](https://imgur.com/a/By4KVir)
 
-## Requirements
+# Using Kda-tool
 
-### Shell Composability
+## Getting Help
 
-This tool's subcommands should be designed in a way that they are easily
-composable using standard shell facilities such as pipes, redirecting to
-files, etc.
+Kda-tool has bult-in help facilities that give information about available
+commands and options. The command `kda -h` or `kda --help` will give you a
+top-level summary of available commands. Adding `-h` or `--help` to any partial
+command will give you help for that command.
 
-### No sensitive data on the command line.
+## Transaction Construction & Templating
 
-This includes private keys, seed phrases, etc.  These pieces of sensitive
-information should never be typed on the command line to prevent accidental
-exposure via shell history logs.
+Kda-tool uses mustache templates to let you quickly and easily construct
+transactions for multiple chains and many other access patterns. It provides two
+commands for doing this: `gen` and `tx`.
 
-Early on in this tool's evolution it probably won't do anything involving
-signing.  There are already other tools for this such as the `pact` command
-line tool, [keychain](https://github.com/kadena-community/keychain), etc.
-However, this tool could easily evolve to include signing capabilities and in
-that case data protections will be important.
+### `kda gen`
 
-## Formats
+This command takes a transaction template file (usually denoted with a `.ktpl`
+extension) and fills the template with user-supplied values. To illustrate,
+let's look at a concrete example template for a simple transfer. Consider the
+following file we'll call `transfer.ktpl`:
+
+#### Generating a single transaction
+
+```
+code: |-
+  (coin.transfer "{{{from-acct}}}" "{{{to-acct}}}" {{amount}})
+data:
+meta:
+  chainId: "{{chain}}"
+  sender: "{{{from-acct}}}"
+  gasLimit: 2300
+  gasPrice: 0.000001
+  ttl: 600
+networkId: testnet04
+signers:
+  - public: badbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadbadb
+    caps:
+      - name: "coin.TRANSFER"
+        args: ["{{{from-acct}}}", "{{{to-acct}}}", {{amount}}]
+      - name: "coin.GAS"
+        args: []
+type: exec
+```
+
+You can get a list of all the values this template needs with the `--holes`
+option which prints the following:
+
+```
+$ kda gen transfer.ktpl --holes
+amount: null
+chain: null
+from-acct: null
+to-acct: null
+```
+
+We can save this to a file with `kda gen transfer.ktpl --holes > data.yaml`.
+Then we can edit this file with the following values:
+
+```
+amount: 1.5
+chain: 0
+from-acct: alice
+to-acct: bob
+```
+
+Then we can generate a transaction from this template as follows:
+
+```
+$ kda gen transfer.ktpl -d data.yaml
+Wrote commands to: ["tx.yaml"]
+```
+
+The file `tx.yaml` contains a finalized transaction that has no signatures and
+will need to be signed before it can be submitted to the blockchain. See the
+next section "Transaction Signing" to see how you can use kda-tool to sign this
+transaction.
+
+If you do not supply `-d`, kda-tool will prompt you to enter all the necessary
+information.
+
+#### Generating multiple transactions
+
+We can use the same `transfer.ktpl` template to generate transactions on
+multiple chains by making a simple change to the `data.yaml` file:
+
+```
+amount: 1.5
+chain: [0,1,2]
+from-acct: alice
+to-acct: bob
+```
+
+All the data is the same as before except we changed the `chain` field to a
+list. When kda-tool sees a list it generates a separate transaction using each
+value in the list:
+
+```
+$ kda gen transfer.ktpl -d data.yaml
+Wrote commands to: ["tx-0.yaml","tx-1.yaml","tx-2.yaml"]
+```
+
+These three files contain transactions for transferring 1.5 KDA from alice to
+bob on chains 0, 1, and 2.
+
+You can use lists for any field. For example, we could use the following to
+transfer 0.1 KDA from alice to each of bob, carol, and dave:
+
+```
+amount: 0.1
+chain: 0
+from-acct: alice
+to-acct: [bob, carol, dave]
+```
+
+Generating using this data gives something slightly different:
+
+```
+$ kda gen transfer.ktpl -d data.yaml
+Wrote commands to: ["tx-bob.yaml","tx-carol.yaml","tx-dave.yaml"]
+```
+
+The filename is `tx-` followed by the value of the field you're looping over.
+You can set your own filename scheme using the `-o` option and a
+mustache-templated filename as follows:
+
+```
+$ kda gen transfer.ktpl -d data.yaml -o foo_{{to-acct}}_bar.yaml
+Wrote commands to: ["foo_bob_bar.yaml","foo_carol_bar.yaml","foo_dave_bar.yaml"]
+```
+
+If you want to transfer a different amount on each chain, you can also put a
+list in the amount field as follows:
+
+```
+amount: ["1.0","2.0","3.0"]
+chain: [0,1,2]
+from-acct: alice
+to-acct: bob
+```
+
+The two lists must be the same length otherwise kda-tool will throw an error.
+Note that the amounts are strings because YAML does not distinguish between
+integer and decimal but Pact does. This will generate three separate
+transactions transferring 1 KDA on chain 0, 2 KDA on chain 1, and 3 KDA on chain
+2.
+
+# Kda-tool Data Formats
 
 ### Key Formats
 
-There are two key formats: plain and hd. 
+There are two key formats: plain and hd.
 
 #### Plain Key Format
 
@@ -79,3 +206,23 @@ Pact's `Command Text`
   "cmd": "{\"payload\":{\"exec\":{\"data\":null,\"code\":\"(+ 1 2)\"}},\"signers\":[{\"pubKey\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"}],\"meta\":{\"gasLimit\":1000,\"chainId\":\"0\",\"gasPrice\":1.0e-2,\"sender\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"},\"nonce\":\"nonce-value\"}"
 }
 ```
+
+## Requirements
+
+### Shell Composability
+
+This tool's subcommands should be designed in a way that they are easily
+composable using standard shell facilities such as pipes, redirecting to
+files, etc.
+
+### No sensitive data on the command line.
+
+This includes private keys, seed phrases, etc.  These pieces of sensitive
+information should never be typed on the command line to prevent accidental
+exposure via shell history logs.
+
+Early on in this tool's evolution it probably won't do anything involving
+signing.  There are already other tools for this such as the `pact` command
+line tool, [keychain](https://github.com/kadena-community/keychain), etc.
+However, this tool could easily evolve to include signing capabilities and in
+that case data protections will be important.

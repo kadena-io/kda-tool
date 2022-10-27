@@ -64,7 +64,7 @@ jobs:
     - name: Build
       run: cabal build
     - name: Show installed packages
-      run: cabal v2-freeze && cat cabal.config
+      run: cabal v2-freeze && cat cabal.project.freeze
 
     # Upload artifacts
     - name: Copy build artifact

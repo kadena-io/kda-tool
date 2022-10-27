@@ -8,6 +8,7 @@ A command line tool for automating all-things Kadena.
 
 * Generate keys
 * Construct transactions across multiple chains using transaction templates
+* Conveniently create transactions from personalized templates stored in a configurable public GitHub repo
 * Sign transactions with both plain ED25519 key pairs or with Chainweaver-compatible HD keys
 * Sign transactions using the Kadena wallet signing API
 * Sign transactions with your local chainweaver keys directly by entering your password

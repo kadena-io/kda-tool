@@ -4,6 +4,16 @@ A command line tool for automating all-things Kadena.
 
 ![Example Animation](https://s1.gifyu.com/images/kda-tool-demo3.gif)
 
+## Features
+
+* Generate keys
+* Construct transactions across multiple chains using transaction templates
+* Sign transactions with both plain ED25519 key pairs or with Chainweaver-compatible HD keys
+* Sign transactions using the Kadena wallet signing API
+* Sign transactions with your local chainweaver keys directly by entering your password
+* Easily test, send, and poll results on the blockchain for multiple transactions
+* Other basic operations for interacting with nodes
+
 # Using Kda-tool
 
 ## Getting Help

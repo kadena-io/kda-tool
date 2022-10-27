@@ -61,10 +61,10 @@ jobs:
       run: cabal outdated
     - name: Install build dependencies
       run: cabal build --only-dependencies
-    - name: Show installed packages
-      run: ghc-pkg list
     - name: Build
       run: cabal build
+    - name: Show installed packages
+      run: cabal v2-freeze && cat cabal.config
 
     # Upload artifacts
     - name: Copy build artifact

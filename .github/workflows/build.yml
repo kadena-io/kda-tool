@@ -61,6 +61,8 @@ jobs:
       run: cabal outdated
     - name: Install build dependencies
       run: cabal build --only-dependencies
+    - name: Show installed packages
+      run: ghc-pkg list
     - name: Build
       run: cabal build
 

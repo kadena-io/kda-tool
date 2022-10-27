@@ -1,9 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Commands.GenTx
-  ( genTxCommand
-  , txCommand
-  ) where
+module Commands.GenTx where
 
 ------------------------------------------------------------------------------
 import           Control.Error
@@ -64,7 +61,7 @@ genFromContents op tplContents = do
         pure []
       Right gd -> do
         dataContents <- lift $ maybe (pure "{}") T.readFile $ _genData_dataFile gd
-        vars :: M.Map Text Value <- hoistEither $ first show $ YA.decode1 (LB.fromStrict $ encodeUtf8 dataContents)
+        vars :: M.Map Text Value <- hoistEither $ readVars dataContents
         let remainingHoles = map fst $ filter (isEmptyHole . snd) $ map (\k -> (k, M.lookup k vars)) $ S.toList holes
         rest <- if null remainingHoles
           then pure mempty
@@ -76,12 +73,19 @@ genFromContents op tplContents = do
         -- A little magical convenience for the chain field
         let augmentedVars = M.adjust stringifyChain "chain" $
                               M.union (M.filter (/= Null) vars) rest
+        lift $ putStrLn $ "augmentedVars: "  <> show augmentedVars
         txts <- hoistEither $ first prettyFailure $ fillValueVars tpl augmentedVars
+        lift $ putStrLn $ "txts: "  <> show txts
         txis :: [TxInputs] <- sequence $ map (hoistEither . parseTxInputs) txts
+        lift $ putStrLn $ "txis: "  <> show txis
         apiReqs :: [Pact.ApiReq] <- mapM (lift . txInputsToApiReq) txis
+        lift $ putStrLn $ "apiReqs: "  <> show apiReqs
         cmds :: [Command Text] <- mapM (fmap snd . lift . Pact.mkApiReqCmd True "") apiReqs
+        lift $ putStrLn $ "cmds: "  <> show cmds
         let sds :: [SigData Text] = rights $ map commandToSigData cmds
+        lift $ putStrLn $ "sds: "  <> show sds
         let outs :: [Text] = map (decodeUtf8 . LB.toStrict . YA.encode1) sds
+        lift $ putStrLn $ "outs: "  <> show outs
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)
@@ -92,6 +96,9 @@ genFromContents op tplContents = do
     Left e -> error e
     Right [] -> pure ()
     Right ps -> putStrLn $ "Wrote commands to: " <> show (map fst ps)
+
+readVars :: Text -> Either String (M.Map Text Value)
+readVars dataContents = first show $ YA.decode1 (LB.fromStrict $ encodeUtf8 dataContents)
 
 stringifyChain :: Value -> Value
 stringifyChain (Number x) = String $ tshow (round x :: Int)

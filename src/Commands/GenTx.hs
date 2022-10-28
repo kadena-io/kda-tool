@@ -1,9 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Commands.GenTx
-  ( genTxCommand
-  , txCommand
-  ) where
+module Commands.GenTx where
 
 ------------------------------------------------------------------------------
 import           Control.Error
@@ -64,7 +61,7 @@ genFromContents op tplContents = do
         pure []
       Right gd -> do
         dataContents <- lift $ maybe (pure "{}") T.readFile $ _genData_dataFile gd
-        vars :: M.Map Text Value <- hoistEither $ first show $ YA.decode1 (LB.fromStrict $ encodeUtf8 dataContents)
+        vars :: M.Map Text Value <- hoistEither $ readVars dataContents
         let remainingHoles = map fst $ filter (isEmptyHole . snd) $ map (\k -> (k, M.lookup k vars)) $ S.toList holes
         rest <- if null remainingHoles
           then pure mempty
@@ -92,6 +89,9 @@ genFromContents op tplContents = do
     Left e -> error e
     Right [] -> pure ()
     Right ps -> putStrLn $ "Wrote commands to: " <> show (map fst ps)
+
+readVars :: Text -> Either String (M.Map Text Value)
+readVars dataContents = first show $ YA.decode1 (LB.fromStrict $ encodeUtf8 dataContents)
 
 stringifyChain :: Value -> Value
 stringifyChain (Number x) = String $ tshow (round x :: Int)

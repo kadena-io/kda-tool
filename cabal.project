@@ -7,6 +7,16 @@ package pact
 
 source-repository-package
     type: git
+    location: https://github.com/mightybyte/HsYAML.git
+    tag: 5a93c4c23d70006f73449b2c158007262c1da33f
+
+source-repository-package
+    type: git
+    location: https://github.com/mightybyte/HsYAML-aeson.git
+    tag: 1f2e9a8d0e0ee3d0ad356dcea5c50af4eb27becc
+
+source-repository-package
+    type: git
     location: https://github.com/kadena-io/cardano-crypto.git
     tag: 4590efa638397e952a51a8994b5543e4ea3c1ecd
 

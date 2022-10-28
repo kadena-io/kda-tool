@@ -44,7 +44,7 @@ import           Utils
 
 data ConfigData = ConfigData
   { _configData_networks :: Maybe (Map Text HostPort)
-  , _configData_txRepo :: Maybe Text
+  , _configData_txRepos :: Maybe [Text]
   } deriving (Eq,Ord,Show,Read)
 
 instance Default ConfigData where
@@ -53,7 +53,7 @@ instance Default ConfigData where
 instance FromJSON ConfigData where
   parseJSON = withObject "ConfigData" $ \v -> ConfigData
     <$> v .: "networks"
-    <*> v .:? "tx-repo"
+    <*> v .:? "tx-repos"
 
 lookupConfiguredNetwork :: Env -> Text -> Either String HostPort
 lookupConfiguredNetwork e net = do
@@ -226,8 +226,18 @@ data TxArgs = TxArgs
   { _txArgs_templateName :: Text
   } deriving (Eq,Ord,Show,Read)
 
+data GitHubTemplate = GitHubTemplate
+  { _ght_templateName :: Text
+  , _ght_templateRepo :: Maybe Text
+  } deriving (Eq,Ord,Show,Read)
+
+data TemplateArg
+  = TemplateFile FilePath
+  | TemplateGitHub GitHubTemplate
+  deriving (Eq,Ord,Show,Read)
+
 data GenTxArgs = GenTxArgs
-  { _genTxArgs_templateFile :: FilePath
+  { _genTxArgs_template :: TemplateArg
   , _genTxArgs_operation :: Either Holes GenData
   } deriving (Eq,Ord,Show,Read)
 
@@ -243,13 +253,6 @@ holesP :: Parser (Either Holes GenData)
 holesP = flag' (Left Holes) $ mconcat
   [ long "holes"
   , help "Display the holes to be filled in a template"
-  ]
-
-templateFileP :: Parser FilePath
-templateFileP = strArgument $ mconcat
-  [ help "YAML file with a mustache transaction template"
-  , metavar "TEMPLATE_FILE"
-  , completer $ fileExtCompleter [".yaml", ".ktpl"]
   ]
 
 filePatP :: Parser FilePath
@@ -279,22 +282,44 @@ chainP = fmap ChainId $ argument auto $ mconcat
   , metavar "CHAIN_ID"
   ]
 
+templateFileP :: Parser FilePath
+templateFileP = strOption $ mconcat
+  [ long "tfile"
+  , short 't'
+  , help "YAML file with a mustache transaction template"
+  , metavar "TEMPLATE_FILE"
+  , completer $ fileExtCompleter [".yaml", ".ktpl"]
+  ]
+
 templateNameP :: Parser Text
-templateNameP = strArgument $ mconcat
-  [ help "Name of a .ktpl tx template in a GitHub repo"
+templateNameP = strOption $ mconcat
+  [ long "gh-template"
+  , short 'g'
+  , help "Name of a .ktpl tx template in a GitHub repo"
   , metavar "TEMPLATE_NAME"
   ]
 
-genTxArgsP :: Parser GenTxArgs
-genTxArgsP = GenTxArgs <$> templateFileP <*> (holesP <|> fmap Right genDataP)
+repoP :: Parser Text
+repoP = strOption $ mconcat
+  [ long "repo"
+  , short 'r'
+  , help "Name of a GitHub repo with templates"
+  , metavar "TEMPLATE_REPO"
+  ]
 
-txArgsP :: Parser TxArgs
-txArgsP = TxArgs <$> templateNameP
+githubTmplP :: Parser GitHubTemplate
+githubTmplP = GitHubTemplate <$> templateNameP <*> optional repoP
+
+templateArgP :: Parser TemplateArg
+templateArgP = (TemplateFile <$> templateFileP)
+           <|> (TemplateGitHub <$> githubTmplP)
+
+genTxArgsP :: Parser GenTxArgs
+genTxArgsP = GenTxArgs <$> templateArgP <*> (holesP <|> fmap Right genDataP)
 
 data SubCommand
   = CombineSigs [FilePath]
   | Cut HostPort
-  | Tx TxArgs
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys (Either FilePath ChainweaverFile) (Maybe KeyIndex)
@@ -368,8 +393,6 @@ templateCommands :: Mod CommandFields SubCommand
 templateCommands = mconcat
   [ command "gen" (info (GenTx <$> genTxArgsP)
       (progDesc "Generate transactions from a template file"))
-  , command "tx" (info (Tx <$> txArgsP)
-      (progDesc "Quickly generate transactions from templates on GitHub"))
   , commandGroup "Transaction Templating Commands"
   ]
 

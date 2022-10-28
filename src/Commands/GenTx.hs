@@ -1,8 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Commands.GenTx where
 
 ------------------------------------------------------------------------------
+import           Control.Applicative
 import           Control.Error
 import           Control.Monad.Trans
 import           Data.Aeson
@@ -33,23 +35,39 @@ import           Types.Env
 import           Utils
 ------------------------------------------------------------------------------
 
-genTxCommand :: GenTxArgs -> IO ()
-genTxCommand args = do
-  tplContents <- T.readFile $ _genTxArgs_templateFile args
-  genFromContents (_genTxArgs_operation args) tplContents
+genTxCommand :: Env -> GenTxArgs -> IO ()
+genTxCommand e args = do
+  etplContents <- case _genTxArgs_template args of
+    TemplateFile f -> Right <$> T.readFile f
+    TemplateGitHub ght -> githubFile e ght
+  case etplContents of
+    Left msg -> putStrLn msg
+    Right tplContents -> genFromContents (_genTxArgs_operation args) tplContents
 
-txCommand :: Env -> TxArgs -> IO ()
-txCommand e args = do
-  let repo = fromMaybe "kadena-io/txlib" $ _configData_txRepo $ _env_configData e
-      tpl = _txArgs_templateName args
-      url = printf "https://raw.githubusercontent.com/%s/master/%s.ktpl" repo tpl
-  httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
-  req <- parseRequest url
-  resp <- httpLbs req httpsMgr
-  let tplContents = toS $ responseBody resp
-  if statusIsSuccessful $ responseStatus resp
-    then genFromContents (Right $ GenData Nothing Nothing) tplContents
-    else printf "Could not find template '%s' in repo %s\n" tpl repo
+githubFile :: Env -> GitHubTemplate -> IO (Either String Text)
+githubFile e ght = do
+  let repos = fromMaybe (["kadena-io/txlib"]) $ (fmap (:[]) (_ght_templateRepo ght) <|> _configData_txRepos (_env_configData e))
+      tpl = _ght_templateName ght
+      mkUrl repo = printf "https://raw.githubusercontent.com/%s/master/%s.ktpl" repo tpl
+      go repo = do
+        httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
+        req <- parseRequest (mkUrl repo)
+        resp <- httpLbs req httpsMgr
+        let tplContents = toS $ responseBody resp
+        if statusIsSuccessful $ responseStatus resp
+          then return $ Right tplContents
+          else return $ Left $ printf "Could not find template '%s' in repos %s\n"
+                        (_ght_templateName ght) (show repos)
+  untilRight (go <$> repos)
+
+untilRight :: Monad m => [m (Either String a)] -> m (Either String a)
+untilRight [] = pure $ Left "untilRight: no repos found"
+untilRight (m:ms) = do
+  ma <- m
+  let f e = case ms of
+        [] -> pure $ Left e
+        _ -> untilRight ms
+  either f (pure . Right) ma
 
 genFromContents :: Either Holes GenData -> Text -> IO ()
 genFromContents op tplContents = do

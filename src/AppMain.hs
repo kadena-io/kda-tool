@@ -62,8 +62,7 @@ appMain = do
     case c of
       Cut hp -> cutCommand hp
       CombineSigs files -> combineSigsCommand theEnv files
-      Tx args -> txCommand theEnv args
-      GenTx args -> genTxCommand args
+      GenTx args -> genTxCommand theEnv args
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args

@@ -73,19 +73,12 @@ genFromContents op tplContents = do
         -- A little magical convenience for the chain field
         let augmentedVars = M.adjust stringifyChain "chain" $
                               M.union (M.filter (/= Null) vars) rest
-        lift $ putStrLn $ "augmentedVars: "  <> show augmentedVars
         txts <- hoistEither $ first prettyFailure $ fillValueVars tpl augmentedVars
-        lift $ putStrLn $ "txts: "  <> show txts
         txis :: [TxInputs] <- sequence $ map (hoistEither . parseTxInputs) txts
-        lift $ putStrLn $ "txis: "  <> show txis
         apiReqs :: [Pact.ApiReq] <- mapM (lift . txInputsToApiReq) txis
-        lift $ putStrLn $ "apiReqs: "  <> show apiReqs
         cmds :: [Command Text] <- mapM (fmap snd . lift . Pact.mkApiReqCmd True "") apiReqs
-        lift $ putStrLn $ "cmds: "  <> show cmds
         let sds :: [SigData Text] = rights $ map commandToSigData cmds
-        lift $ putStrLn $ "sds: "  <> show sds
         let outs :: [Text] = map (decodeUtf8 . LB.toStrict . YA.encode1) sds
-        lift $ putStrLn $ "outs: "  <> show outs
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)

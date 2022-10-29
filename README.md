@@ -27,17 +27,15 @@ command will give you help for that command.
 ## Transaction Construction & Templating
 
 Kda-tool uses mustache templates to let you quickly and easily construct
-transactions for multiple chains and many other access patterns. It provides two
-commands for doing this: `gen` and `tx`.
-
-### `kda gen`
+transactions for multiple chains and many other access patterns. It provides the
+`gen` command for doing this.
 
 This command takes a transaction template file (usually denoted with a `.ktpl`
 extension) and fills the template with user-supplied values. To illustrate,
 let's look at a concrete example template for a simple transfer. Consider the
 following file we'll call `transfer.ktpl`:
 
-#### Generating a single transaction
+### Generating a single transaction
 
 ```
 code: |-
@@ -64,14 +62,14 @@ You can get a list of all the values this template needs with the `--holes`
 option which prints the following:
 
 ```
-$ kda gen transfer.ktpl --holes
+$ kda gen -t transfer.ktpl --holes
 amount: null
 chain: null
 from-acct: null
 to-acct: null
 ```
 
-We can save this to a file with `kda gen transfer.ktpl --holes > data.yaml`.
+We can save this to a file with `kda gen -t transfer.ktpl --holes > data.yaml`.
 Then we can edit this file with the following values:
 
 ```
@@ -84,7 +82,7 @@ to-acct: bob
 Then we can generate a transaction from this template as follows:
 
 ```
-$ kda gen transfer.ktpl -d data.yaml
+$ kda gen -t transfer.ktpl -d data.yaml
 Wrote commands to: ["tx.yaml"]
 ```
 
@@ -96,7 +94,7 @@ transaction.
 If you do not supply `-d`, kda-tool will prompt you to enter all the necessary
 information.
 
-#### Generating multiple transactions
+### Generating multiple transactions
 
 We can use the same `transfer.ktpl` template to generate transactions on
 multiple chains by making a simple change to the `data.yaml` file:
@@ -113,7 +111,7 @@ list. When kda-tool sees a list it generates a separate transaction using each
 value in the list:
 
 ```
-$ kda gen transfer.ktpl -d data.yaml
+$ kda gen -t transfer.ktpl -d data.yaml
 Wrote commands to: ["tx-0.yaml","tx-1.yaml","tx-2.yaml"]
 ```
 
@@ -133,7 +131,7 @@ to-acct: [bob, carol, dave]
 Generating using this data gives something slightly different:
 
 ```
-$ kda gen transfer.ktpl -d data.yaml
+$ kda gen -t transfer.ktpl -d data.yaml
 Wrote commands to: ["tx-bob.yaml","tx-carol.yaml","tx-dave.yaml"]
 ```
 
@@ -142,7 +140,7 @@ You can set your own filename scheme using the `-o` option and a
 mustache-templated filename as follows:
 
 ```
-$ kda gen transfer.ktpl -d data.yaml -o foo_{{to-acct}}_bar.yaml
+$ kda gen -t transfer.ktpl -d data.yaml -o foo_{{to-acct}}_bar.yaml
 Wrote commands to: ["foo_bob_bar.yaml","foo_carol_bar.yaml","foo_dave_bar.yaml"]
 ```
 
@@ -161,6 +159,40 @@ Note that the amounts are strings because YAML does not distinguish between
 integer and decimal but Pact does. This will generate three separate
 transactions transferring 1 KDA on chain 0, 2 KDA on chain 1, and 3 KDA on chain
 2.
+
+### Generating from predefined GitHub templates
+
+The `gen` command's `-t` option reads te template from a file on your local
+machine, but kda-tool has built-in support for predefined templates stored on
+GitHub with the `-g` option. For example, `kda gen -g transfer` will generate a
+transaction using a template called `transfer.ktpl` on GitHub. By default,
+kda-tool looks in the repository `kadena-io/txlib` to find the transaction
+templates, but you can specify your own transaction repository using the `-r`
+option.
+
+## Config File
+
+By default the `kda gen` command looks for transaction templates in the
+`kadena-io/txlib` GitHub repo. You can configure kda-tool to use your own
+transaction repos by creating a config file. The default location for the config
+file is `$HOME/.config/kda/config.json`. You can also pass the `-c` option to
+use your own config file stored somewhere else. Here is an example config file:
+
+```
+{
+  "tx-repos": [
+    "blockchaindev/my-marmalade-templates",
+    "blockchaindev/txlib",
+    "my-favorite-dex/txlib",
+    "kadena-io/txlib"
+  ]
+}
+```
+
+Each repo is tried in the order they appear in the config file, stopping after
+the first one that works. This allows projects building on Kadena to publish
+libraries of transation templates for working with their smart contracts and for
+users to use any combination of template sets that they desire.
 
 # Kda-tool Data Formats
 

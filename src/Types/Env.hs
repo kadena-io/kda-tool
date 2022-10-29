@@ -293,7 +293,7 @@ templateFileP = strOption $ mconcat
 
 templateNameP :: Parser Text
 templateNameP = strOption $ mconcat
-  [ long "gh-template"
+  [ long "gh-tmpl"
   , short 'g'
   , help "Name of a .ktpl tx template in a GitHub repo"
   , metavar "TEMPLATE_NAME"

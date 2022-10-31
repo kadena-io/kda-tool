@@ -260,13 +260,16 @@ file with the additional signature is passed to the next party for signing. As
 mentioned above, when the transaction is fully signing, kda-tool will output a
 `.json` file that can be submitted to the blockchain.
 
+```
   kda gen
 +----------+   alice sign    +------+   bob sign    +------+
 | unsigned | --------------> | yaml | ------------> | json |
 +----------+                 +------+               +------+
+```
 
 However, the parallel method looks like this:
 
+```
 +----------+   alice sign    +------+
 | unsigned | --------------> | yaml |
 +----------+                 +------+
@@ -274,16 +277,86 @@ However, the parallel method looks like this:
 +----------+    bob sign     +------+
 | unsigned | --------------> | yaml |
 +----------+                 +------+
+```
 
 If you use the parallel method, you'll end up with multiple partially-signed
-YAML files. The `kda combine-sigs` command lets you combine multiple partially
-signed files. It is very smart. All you have to do is give it a list of
-transaction files--any transaction files for any number of different
-transactions across different networks--and it will group them all by network
-and transaction, combine any signatures that were found, and write JSON or YAML
-files depending on whether the transaction is fully or partially signed. Just
-throw in whatever partially signed transactions you have and combine-sigs will
-do the right thing.
+YAML files. The `kda combine-sigs` command lets you combine them. It is very
+smart. All you have to do is give it a list of transaction files--any
+transaction files for any number of different transactions across different
+networks--and it will group them all by network and transaction, combine any
+signatures that were found, and write JSON or YAML files depending on whether
+the transaction is fully or partially signed. Just throw in whatever partially
+signed transactions you have and combine-sigs will do the right thing.
+
+## Sending Transactions to a Node
+
+Once you have one or more fully signed transactions in JSON files, kda-tool
+provides commands for doing core node operations: `local`, `send`, and `poll`.
+
+The `local` command lets you run a transaction on a node for testing and
+checking results without actually submitting it to the blockchain. It is usually
+a good idea to test your command with `local` first to avoid gas charges for
+failed transactions. The `send` command sends transactions to the blockchain via
+the specified node, and the `poll` command checks to see whether the
+transactions have been included in a mined block yet.
+
+All three of these commands use the same format:
+
+```
+kda local *.json -n mynode.example.com:<service-api-port>
+```
+
+# Using kda-tool for smart contract development
+
+Kda-tool makes testing and deploying smart contracts to multiple chains very
+convenient and repeatable. As an alternative to the `code` and `data` sections
+in transaction templates, you can use `codeFile` and `dataFile` to have kda-tool
+read Pact code and data from disk. Here's an example of how you might do that.
+First, put the following template in a file called `deploy.ktpl`:
+
+```
+codeFile: my-contract.pact
+dataFile: my-env-data.json
+publicMeta:
+  chainId: "{{chain}}"
+  sender: dummy
+  gasLimit: 5000
+  gasPrice: 0.00000001
+  ttl: 3600
+networkId: "{{network}}"
+signers:
+  - public: 40c1e2e86cc3974cc29b8953e127c1f31905665fcc98846ebf6c00cb8610a213
+type: exec
+```
+
+This assumes that our smart contract is stored in a file called
+`my-contract.pact` and some associated data is in `my-env-data.json`. Now
+imagine that our contract is deployed on chains 5, 6, and 7. We can encode this
+in a file `deploy-data.yaml` as follows:
+
+```
+chain: [5,6,7]
+```
+
+Now when you make changes to your smart contract, testing them is as simple as:
+
+```
+$ kda gen -t deploy.ktpl -d deploy.yaml
+network: testnet04
+Wrote commands to: ["tx-5.yaml","tx-6.yaml","tx-7.yaml"]
+$ kda sign -k my-hd-key.phrase tx-*.yaml
+Wrote 3 signatures to the following files: tx-5.json, tx-6.json, tx-7.json
+$ kda local tx-*.yaml -n my-node.example.com:1848
+```
+
+We didn't specify the network in `deploy-data.yaml`, so `kda gen` asks you what
+network you want to deploy to. If you don't want to split the transaction's
+env-data out into a separate file, you can replace the `dataFile` field with
+`data` and include that data in `deploy.ktpl`.
+
+The benefit of using this approach over something like Chainweaver is that you
+can check all the above files into Git or some other version control system so
+that you will be able to easily reproduce your deployment steps in the future.
 
 # Kda-tool Data Formats
 
@@ -320,49 +393,10 @@ Kda-tool also understands the on-disk key storage format used by desktop
 Chainweaver. This is an encrypted format and kda-tool will prompt you to enter
 your Chainweaver password to decrypt the keys.
 
-### Transaction Formats
-
-Need to find the right names for the transaction formats.
-
-#### Template
-
-
-#### Finalized
-
-`SigData` ... more recently evolved to `CommandSigData` from the signing API
-
-#### Fully Signed
-
-Pact's `Command Text`
-
-```
-{
-  "hash": "H6XjdPHzMai2HLa3_yVkXfkFYMgA0bGfsB0kOsHAMuI",
-  "sigs": [
-    {
-      "sig": "8d452109cc0439234c093b5e204a7428bc0a54f22704402492e027aaa9375a34c910d8a468a12746d0d29e9353f4a3fbebe920d63bcc7963853995db015d060f"
-    }
-  ],
-  "cmd": "{\"payload\":{\"exec\":{\"data\":null,\"code\":\"(+ 1 2)\"}},\"signers\":[{\"pubKey\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"}],\"meta\":{\"gasLimit\":1000,\"chainId\":\"0\",\"gasPrice\":1.0e-2,\"sender\":\"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca\"},\"nonce\":\"nonce-value\"}"
-}
-```
-
 ## Requirements
-
-### Shell Composability
-
-This tool's subcommands should be designed in a way that they are easily
-composable using standard shell facilities such as pipes, redirecting to
-files, etc.
 
 ### No sensitive data on the command line.
 
 This includes private keys, seed phrases, etc.  These pieces of sensitive
 information should never be typed on the command line to prevent accidental
 exposure via shell history logs.
-
-Early on in this tool's evolution it probably won't do anything involving
-signing.  There are already other tools for this such as the `pact` command
-line tool, [keychain](https://github.com/kadena-community/keychain), etc.
-However, this tool could easily evolve to include signing capabilities and in
-that case data protections will be important.

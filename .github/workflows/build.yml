@@ -31,7 +31,7 @@ jobs:
 
     # Project Setup
     - name: Create cabal.project.local
-      if: matrix.ghc == '9.0.2'
+      if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
       run: |
         cat > cabal.project.local <<EOF
         allow-newer: chainweb-api:*

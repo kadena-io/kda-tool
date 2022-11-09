@@ -84,7 +84,7 @@ newtype KeyIndex = KeyIndex { unKeyIndex :: Natural }
   deriving (Eq, Ord, Show, Read, Num, Enum)
 
 fromKeyIndex :: KeyIndex -> Word32
-fromKeyIndex = fromIntegral . naturalToInt . unKeyIndex
+fromKeyIndex = fromIntegral . naturalToInteger . unKeyIndex
 
 -- genMnemonic24 :: MonadIO m => m (Either Text (Crypto.MnemonicSentence 24))
 -- genMnemonic24 = liftIO $ bimap tshow Crypto.entropyToWords . Crypto.toEntropy @256

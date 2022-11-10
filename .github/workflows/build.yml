@@ -4,23 +4,23 @@ on: push
 
 jobs:
   build:
-    name: Build master with ${{ matrix.ghc }} / ${{ matrix.cabal }} on ${{ matrix.os }}
+    name: Build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4']
-        cabal: ['3.4']
+        ghc: ['8.8.4', "8.10.7", "9.0.2"]
+        cabal: ['3.8']
         os: ['ubuntu-18.04', 'ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
     steps:
     # Setup
     - name: Checkout repository
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
 
     # Haskell Setup
     - name: Install GHC and Cabal
-      uses: haskell/actions/setup@v1.2.3
+      uses: haskell/actions/setup@v2.0.1
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
@@ -28,31 +28,35 @@ jobs:
       run: |
         ghc --version
         cabal --version
-    - name: Setup PATHs (windows)
-      if: "contains(matrix.os, 'windows')"
-      shell: bash
-      run: |
-        echo "/c/ProgramData/chocolatey/lib/ghc/tools/ghc-${{ matrix.ghc }}/bin" >> $GITHUB_PATH
-        echo "C:\\ProgramData\\chocolatey\\lib\\ghc\\tools\\ghc-${{ matrix.ghc }}\\bin" >> $GITHUB_PATH
-        echo "/c/ProgramData/chocolatey/lib/cabal/tools/cabal-3.2.0.0" >> $GITHUB_PATH
-        echo "C:\\ProgramData\\chocolatey\\lib\\cabal\\tools\\cabal-3.2.0.0" >> $GITHUB_PATH
-        echo "/c/Users/runneradmin/AppData/Roaming/cabal/bin" >> $GITHUB_PATH
-        echo "C:\\Users\\runneradmin\\AppData\\Roaming\\cabal\\bin" >> $GITHUB_PATH
-        echo "/c/Program Files/Amazon/AWSCLI/bin" >> $GITHUB_PATH
-        echo "C:\\Program Files\\Amazon\\AWSCLI\\bin" >> $GITHUB_PATH
-
-        # these are needed for cabal-cache to work
-        ln -s /c/ProgramData/chocolatey/lib/ghc/tools/ghc-${{ matrix.ghc }}/bin/ghc-pkg.exe /c/ProgramData/chocolatey/lib/ghc/tools/ghc-${{ matrix.ghc }}/bin/ghc-pkg-${{ matrix.ghc }}
 
     # Project Setup
-    - uses: actions/cache@v2
+    - name: Create cabal.project.local
+      if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
+      run: |
+        cat > cabal.project.local <<EOF
+        allow-newer: chainweb-api:*
+        allow-newer: kadena-signing-api:*
+        allow-newer: *:base
+        EOF
+
+    # dist cache
+    # the cache-key forces uploading of cache at least once a day, which ensures that
+    # upstream dependency changes are captured regularly.
+    - name: Create date file for dist-newstyle cache key
+      id: cache-date
+      run: |
+        echo "value=$(date +%Y.%j)" >> $GITHUB_OUTPUT
+    - uses: actions/cache@v3
       name: Cache dist-newstyle
       with:
         path: |
           ~/.cabal/packages
           ~/.cabal/store
           dist-newstyle
-        key: ${{ matrix.os }}-${{ matrix.ghc }}-4-cabal
+        key: ${{ matrix.os }}-${{ matrix.ghc }}-${{ steps.cache-date.outputs.value }}-${{ hashFiles('cabal.*', '*.cabal', 'src/**', 'test/**') }}
+        restore-keys: |
+          ${{ matrix.os }}-${{ matrix.ghc }}-${{ steps.cache-date.outputs.value }}-
+          ${{ matrix.os }}-${{ matrix.ghc }}-
 
     # Build
     - name: Update package database
@@ -64,19 +68,19 @@ jobs:
     - name: Build
       run: cabal build
     - name: Show installed packages
-      run: cabal v2-freeze && cat cabal.project.freeze
+      run: cabal freeze && cat cabal.project.freeze
 
     # Upload artifacts
     - name: Copy build artifact
       run: cp `cabal list-bin exe:kda` .
     - name: Stripping binary
       run: strip kda
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: kda-build-${{ matrix.os }}
         path: kda
 
     # Test
     - name: Test
-      run: cabal v2-test
+      run: cabal test
 

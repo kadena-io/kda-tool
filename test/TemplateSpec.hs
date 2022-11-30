@@ -23,9 +23,9 @@ templateSpec :: Spec
 templateSpec = do
     it "data reader doesn't have decimal imprecision" $ do
       readVars "foo: 0.0000000001" `shouldBe` (Right val)
-    it "enforceEqualArrayLens" $ do
+    it "enforceEqualArrayLens returns Just 1 for single element vars" $ do
       eealTest varMap `shouldBe` Right (Just 1)
-    it "fillValueVars" $ do
+    it "fillValueVars drops outer array for single element vars" $ do
       fillValueVars fooTmpl varMap `shouldBe` Right [fooFilledText]
   where
     val = M.singleton "foo" (Number 0.0000000001)

@@ -114,7 +114,7 @@ enforceEqualArrayLens = go [] Nothing False . filter isArrWithMultiple
               newMismatch = isMismatch || maybe False (/= len) mFirstLen
           in go (msg : lenStrs) (mFirstLen <|> Just len) newMismatch ps
         _ -> go lenStrs mFirstLen isMismatch ps
-    isArrWithMultiple (_,MU.Array a) = V.length a > 1
+    isArrWithMultiple (_,MU.Array a) = V.length a >= 1
     isArrWithMultiple _ = False
 
 replicateSingleArr :: Int -> MU.Value -> MU.Value
@@ -144,14 +144,6 @@ parseValueValue (k,v) = do
       -- A.String _ -> pure v
       -- A.Array _ -> pure v
       -- _ -> Left "Template values must be a Number, String, or Array of numbers or strings"
-    pure (k,mFromJSON v2)
-
-parseValueValue2 :: (Text, A.Value) -> Either String (Text, MU.Value)
-parseValueValue2 (k,v) = do
-    v2 <- case v of
-      A.Array a ->
-        if V.length a == 1 then pure (a V.! 0) else pure v
-      _ -> pure v
     pure (k,mFromJSON v2)
 
 getMustacheVariables :: STree -> Set [Text]

@@ -111,16 +111,68 @@ executable kda
 test-suite kda-tool-tests
   main-is:          TestMain.hs
   type:             exitcode-stdio-1.0
-  hs-source-dirs:   test
+  hs-source-dirs:   test, src
   default-language: Haskell2010
+  default-extensions:
+    ScopedTypeVariables
   ghc-options:      -Wall -threaded -rtsopts -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
   build-depends:
-      base
+      Decimal
+    , HsYAML
+    , HsYAML-aeson
     , aeson
+    , async
+    , attoparsec
+    , base >= 4.13 && < 5
+    , base16
+    , base64
+    , bytestring >= 0.10.12
+    , cardano-crypto
+    , cassava
+    , chainweb-api
+    , connection
     , containers
+    , cryptohash-sha256
+    , cryptohash-sha512
+    , cryptonite
+    , data-default
+    , directory
+    , dlist
+    , echo
+    , errors
+    , filepath
+    , http-client
+    , http-client-tls
+    , http-types
+    , kadena-signing-api
+    , katip
+    , lens
+    , lens-aeson
+    , memory
+    , mtl
+    , mustache
+    , mwc-random
+    , network-uri
+    , optparse-applicative
+    , pact
+    , process
+    , resource-pool
+    , retry
+    , scientific
+    , servant
+    , servant-client
+    , stm
+    , stm-linkedlist
+    , string-conv
+    , text
+    , time
+    , transformers
+    , unordered-containers
+    , vector
+    , zlib
+
     , hspec
-    , kda-tool
 
   other-modules:
     TemplateSpec

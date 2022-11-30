@@ -17,6 +17,7 @@ import           Data.Text (Text)
 import qualified Data.Text.IO as T
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import qualified Data.Vector as V
 import qualified Data.YAML.Aeson as YA
 import           Network.Connection
 import           Network.HTTP.Client
@@ -120,13 +121,21 @@ parseTxInputs = first show . YA.decode1Strict . encodeUtf8
 
 defaultOutPat :: M.Map Text Value -> Text
 defaultOutPat m =
-    if S.member "chain" arrayKeys
-      then "tx-{{chain}}.yaml"
-      else case S.toList arrayKeys of
-             [] -> "tx.yaml"
-             (t:_) -> T.pack $ printf "tx-{{%s}}.yaml" t
+    if S.member "chain" (M.keysSet onlyArrays)
+      then "tx-{{{chain}}}.yaml"
+      else case M.toList onlyArrays of
+             ((k,Array v):_) ->
+               if V.length v > 1
+                 then T.pack $ printf "tx-{{{%s}}}.yaml" k
+                 else "tx.yaml"
+
+             -- We really only want to match [] here but the other cases should
+             -- never happen because we're filtering on isArray, and even if
+             -- they do happen they would generate errors elsewhere and this
+             -- code would not matter.
+             _ -> "tx.yaml"
   where
-    arrayKeys = M.keysSet $ M.filter isArray m
+    onlyArrays = M.filter isArray m
 
 askForValue :: Text -> IO (Text, Value)
 askForValue k = do

@@ -31,7 +31,6 @@ import           Options.Applicative.Help.Pretty hiding ((</>))
 import           System.Directory
 import           System.FilePath
 import           System.IO
-import           System.IO.Echo
 import           System.Info
 import           System.Random.MWC
 ------------------------------------------------------------------------------
@@ -169,7 +168,7 @@ getKeyFile (Left fp) = do
   let fpStr = case fp of
         "-" -> "stdin"
         _ -> fp
-  h <- withoutInputEcho $ fileOrStdin fp
+  h <- fileOrStdin fp
   pure (fpStr, h)
 getKeyFile (Right ChainweaverFile) = do
   d <- getChainweaverDir

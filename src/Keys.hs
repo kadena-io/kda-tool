@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -139,8 +140,9 @@ instance FromJSON KeyPairYaml where
     pure $ KeyPairYaml pubText secText
 
 readKadenaKey :: Handle -> IO (Either String KadenaKey)
-readKadenaKey h = do
-  t <- T.strip <$> T.hGetContents h
+readKadenaKey h = withoutInputEcho $ do
+  !t <- T.strip <$> T.hGetContents h
+  hClose h
   case YA.decode1Strict $ T.encodeUtf8 t of
     Right (String s) -> runExceptT $
       ExceptT (decodeMnemonic t) <|> ExceptT (decodeEncryptedMnemonic s)

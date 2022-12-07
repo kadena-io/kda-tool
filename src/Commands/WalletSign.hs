@@ -85,11 +85,22 @@ signYamlFiles env args = do
           eresp <- runClientM (quicksign qsReq) clientEnv
           case eresp of
             Left e -> error $ show e
-            Right resp -> do
-              let newCsds = unQuickSignResponse resp
-                  saveAndCountSigs (f,c1,c2) = do
-                    f2 <- saveCommandSigData (dropExtension f) c2
-                    pure (f2, countSigs c2 - countSigs c1)
+            Right (QSR_Error e) -> case e of
+              QuicksignError_Reject -> T.putStrLn "Signing request was rejected by the user"
+              QuicksignError_EmptyList -> T.putStrLn "Wallet signing request returned no signatures"
+              QuicksignError_Other msg -> T.putStrLn $ "Wallet returned error: " <> msg
+            Right (QSR_Response newCsds) -> do
+              let saveAndCountSigs :: (FilePath, CommandSigData, CSDResponse) -> IO (FilePath, Int)
+                  saveAndCountSigs (f,c1,csdr) = do
+                    case _csdr_outcome csdr of
+                      SO_Success _ -> do
+                        let c2 = _csdr_csd csdr
+                        f2 <- saveCommandSigData (dropExtension f) c2
+                        pure (f2, countSigs c2 - countSigs c1)
+                      SO_Failure msg -> do
+                        T.putStrLn $ "Got signing failure: " <> msg
+                        pure (f, 0)
+                      SO_NoSig -> pure (f, 0)
               fileCounts <- mapM saveAndCountSigs $ zip3 files csds newCsds
               printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
               --case resp of

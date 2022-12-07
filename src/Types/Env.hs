@@ -238,6 +238,7 @@ data TemplateArg
 data GenTxArgs = GenTxArgs
   { _genTxArgs_template :: TemplateArg
   , _genTxArgs_operation :: Either Holes GenData
+  , _genTxArgs_old :: Bool
   } deriving (Eq,Ord,Show,Read)
 
 data GenData = GenData
@@ -314,7 +315,13 @@ templateArgP = (TemplateFile <$> templateFileP)
            <|> (TemplateGitHub <$> githubTmplP)
 
 genTxArgsP :: Parser GenTxArgs
-genTxArgsP = GenTxArgs <$> templateArgP <*> (holesP <|> fmap Right genDataP)
+genTxArgsP = GenTxArgs <$> templateArgP <*> (holesP <|> fmap Right genDataP) <*> oldP
+
+oldP :: Parser Bool
+oldP = flag False True $ mconcat
+  [ long "old"
+  , help "Output old SigData format (deprecated, will be removed)"
+  ]
 
 data SubCommand
   = CombineSigs [FilePath]

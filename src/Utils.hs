@@ -129,6 +129,15 @@ sigDataToTransaction sd = do
     sigs <- note "Error: SigData has missing signatures" $ sequence $ map snd $ _sigDataSigs sd
     pure $ mkTransaction pc (map userSigToSig sigs)
 
+-- | Converts a 'CommandSigData' type to chainweb-api's 'Transaction'
+commandSigDataToTransaction :: CommandSigData -> Either String Transaction
+commandSigDataToTransaction csd = do
+    let cmdText = _csd_cmd csd
+    pc <- eitherDecodeStrict $ T.encodeUtf8 cmdText
+    sigs <- note "Error: CommandSigData has missing signatures" $
+      sequence $ map _s_userSig $ unSignatureList $ _csd_sigs csd
+    pure $ mkTransaction pc (map userSigToSig sigs)
+
 -- | Converts chainweb-api's 'Sig' type to Pact's 'UserSig'.
 userSigToSig :: UserSig -> Sig
 userSigToSig = Sig . _usSig
@@ -171,7 +180,7 @@ saveCommandSigData
   -> CommandSigData
   -> IO FilePath
 saveCommandSigData fname csd = do
-  case filter (isNothing . snd) $ unSignatureList $ _csd_sigs csd of
+  case filter (isNothing . _s_userSig) $ unSignatureList $ _csd_sigs csd of
     [] -> do
       case commandSigDataToCommand csd of
         Left _ -> writeYaml fname csd
@@ -191,10 +200,12 @@ writeJson fname c = do
   pure fp
 
 hasYamlExtension :: FilePath -> Bool
-hasYamlExtension = T.isSuffixOf ".yaml" . T.pack
+hasYamlExtension fp =
+  T.isSuffixOf ".yaml" (T.pack fp) ||
+  T.isSuffixOf ".json" (T.pack fp)
 
 countSigs :: CommandSigData -> Int
-countSigs = length . filter (isJust . snd) . unSignatureList . _csd_sigs
+countSigs = length . filter (isJust . _s_userSig) . unSignatureList . _csd_sigs
 
 txChain :: Transaction -> ChainId
 txChain = _chainwebMeta_chainId . _pactCommand_meta . _transaction_cmd

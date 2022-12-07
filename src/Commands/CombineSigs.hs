@@ -61,10 +61,10 @@ combineSigs [] = SignatureList []
 combineSigs lists@(s:_) = SignatureList $ map f $ unSignatureList s
   where
     combined = M.unionsWith  mplus $ map sigListToMap lists
-    f (pubkey,_) = (pubkey, join $ M.lookup pubkey combined)
+    f (CSDSigner pubkey _) = CSDSigner pubkey $ join $ M.lookup pubkey combined
 
 sigListToMap :: SignatureList -> Map PublicKeyHex (Maybe UserSig)
-sigListToMap (SignatureList sigs) = M.fromList sigs
+sigListToMap (SignatureList sigs) = M.fromList (map (\(CSDSigner k s) -> (k,s)) sigs)
 
 readCommandFile :: FilePath -> IO (Either (FilePath, String) (FilePath, CommandSigData))
 readCommandFile fp = do

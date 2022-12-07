@@ -75,7 +75,7 @@ signYamlFile kkey mindex msgFile = do
     Right csd -> do
       let sigs = _csd_sigs csd
           cmd = _csd_cmd csd
-          signingKeys = S.fromList $ map fst $ unSignatureList sigs
+          signingKeys = S.fromList $ map _s_pubKey $ unSignatureList sigs
       case kkey of
         HDRoot xprv mpass -> tryHdIndex msgFile csd xprv mpass mindex
         PlainKeyPair sec pub -> do
@@ -101,7 +101,7 @@ tryHdIndex msgFile csd xprv mpass mind = do
   let startingSigs = _csd_sigs csd
       cmd = _csd_cmd csd
       cmdBS = encodeUtf8 cmd
-      signingKeys = S.fromList $ map fst $ unSignatureList startingSigs
+      signingKeys = S.fromList $ map _s_pubKey $ unSignatureList startingSigs
       signPairs = getSigningInds signingKeys xprv mpass (maybe [0..100] (:[]) mind)
       f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec (fromMaybe "" mpass) (calcHash cmdBS))
       newSigs = foldr f startingSigs signPairs
@@ -133,7 +133,9 @@ addSig :: PublicKeyHex -> UserSig -> SignatureList -> SignatureList
 addSig pub sig (SignatureList sigs) = SignatureList $ go sigs
   where
     go [] = []
-    go (pair@(k,_):ps) = if k == pub then (k, Just sig) : go ps else pair : go ps
+    go (c:cs) =
+      let k = _s_pubKey c
+       in if k == pub then (CSDSigner k (Just sig)) : go cs else c : go cs
 
 signOther :: FilePath -> Encoding -> IO ()
 --signOther msgFile enc = do

@@ -6,6 +6,7 @@ module Commands.GenTx where
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
+import           Control.Monad
 import           Control.Monad.Trans
 import           Data.Aeson
 import           Data.Bifunctor
@@ -19,6 +20,7 @@ import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
 import qualified Data.YAML.Aeson as YA
+import           Kadena.SigningTypes
 import           Network.Connection
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS
@@ -43,7 +45,7 @@ genTxCommand e args = do
     TemplateGitHub ght -> githubFile e ght
   case etplContents of
     Left msg -> putStrLn msg
-    Right tplContents -> genFromContents (_genTxArgs_operation args) tplContents
+    Right tplContents -> genFromContents (_genTxArgs_operation args) tplContents (_genTxArgs_old args)
 
 githubFile :: Env -> GitHubTemplate -> IO (Either String Text)
 githubFile e ght = do
@@ -70,8 +72,8 @@ untilRight (m:ms) = do
         _ -> untilRight ms
   either f (pure . Right) ma
 
-genFromContents :: Either Holes GenData -> Text -> IO ()
-genFromContents op tplContents = do
+genFromContents :: Either Holes GenData -> Text -> Bool -> IO ()
+genFromContents op tplContents useOldOutput = do
   res <- runExceptT $ do
     (tpl,holes :: S.Set Text) <- hoistEither $ parseAndGetVars tplContents
     case op of
@@ -96,8 +98,11 @@ genFromContents op tplContents = do
         txis :: [TxInputs] <- sequence $ map (hoistEither . parseTxInputs) txts
         apiReqs :: [Pact.ApiReq] <- mapM (lift . txInputsToApiReq) txis
         cmds :: [Command Text] <- mapM (fmap snd . lift . Pact.mkApiReqCmd True "") apiReqs
-        let sds :: [SigData Text] = rights $ map commandToSigData cmds
-        let outs :: [Text] = map (decodeUtf8 . LB.toStrict . YA.encode1) sds
+        let chooseFormat i =
+              if useOldOutput
+                then pure $ encodeText i
+                else fmap encodeText $ sdToCsd i
+        let outs :: [Text] = catMaybes $ map (chooseFormat <=< hush . commandToSigData) cmds
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd
         (fpTmpl, fpVars) <- hoistEither $ parseAndGetVars outPat
         fps <- hoistEither $ first prettyFailure $ fillFilenameVars fpTmpl (M.restrictKeys augmentedVars fpVars)
@@ -108,6 +113,15 @@ genFromContents op tplContents = do
     Left e -> error e
     Right [] -> pure ()
     Right ps -> putStrLn $ "Wrote commands to: " <> show (map fst ps)
+
+encodeText :: ToJSON a => a -> Text
+encodeText = decodeUtf8 . LB.toStrict . YA.encode1
+
+sdToCsd :: SigData Text -> Maybe CommandSigData
+sdToCsd sd = do
+    cmd <- _sigDataCmd sd
+    let sigs = map (uncurry CSDSigner) $ _sigDataSigs sd
+    pure $ CommandSigData (SignatureList sigs) cmd
 
 readVars :: Text -> Either String (M.Map Text Value)
 readVars dataContents = first show $ YA.decode1 (LB.fromStrict $ encodeUtf8 dataContents)

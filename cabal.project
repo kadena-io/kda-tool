@@ -38,5 +38,5 @@ source-repository-package
 source-repository-package
     type: git
     location: https://github.com/kadena-io/signing-api.git
-    tag: 42a053606a37494144876d7ff8663c02ba643f07
+    tag: 6975fcbff65d16a8eb8e9cde9dd7718523477251
     subdir: kadena-signing-api

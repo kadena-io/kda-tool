@@ -6,7 +6,6 @@
 module Utils where
 
 ------------------------------------------------------------------------------
-import           Chainweb.Api.ChainId
 import           Chainweb.Api.ChainwebMeta
 import           Chainweb.Api.PactCommand
 import           Chainweb.Api.Sig

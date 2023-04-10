@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
 module TxTemplate where
@@ -58,7 +59,7 @@ fillFilenameVars tmpl varMap =
           _ -> Left "Filename template values must be arrays"
         pure (k,mFromJSON v2)
 
-
+-- Currently unused
 fillTextVars
   :: Template
   -> Map Text Text
@@ -114,7 +115,7 @@ enforceEqualArrayLens = go [] Nothing False . filter isArrWithMultiple
               newMismatch = isMismatch || maybe False (/= len) mFirstLen
           in go (msg : lenStrs) (mFirstLen <|> Just len) newMismatch ps
         _ -> go lenStrs mFirstLen isMismatch ps
-    isArrWithMultiple (_,MU.Array a) = V.length a >= 1
+    isArrWithMultiple (_,MU.Array a) = V.length a > 1
     isArrWithMultiple _ = False
 
 replicateSingleArr :: Int -> MU.Value -> MU.Value

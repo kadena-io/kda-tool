@@ -1,0 +1,44 @@
+code: |-
+  (coin.transfer-create "alice" "bob" (read-keyset "ks") 5.0)
+data:
+  ks:
+    pred: "keys-all"
+    keys: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+publicMeta:
+  chainId: "0"
+  sender: alice
+  gasLimit: 2300
+  gasPrice: 0.000001
+  ttl: 600
+networkId: testnet04
+signers:
+  - public: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    caps:
+      - name: "coin.TRANSFER"
+        args: [alice, bob, 5.0]
+      - name: "coin.GAS"
+        args: []
+type: exec
+
+code: |-
+  (coin.transfer-create "alice" "bob" (read-keyset "ks") 5.0)
+data:
+  ks:
+    pred: "keys-all"
+    keys: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+publicMeta:
+  chainId: "1"
+  sender: alice
+  gasLimit: 2300
+  gasPrice: 0.000001
+  ttl: 600
+networkId: testnet04
+signers:
+  - public: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    caps:
+      - name: "coin.TRANSFER"
+        args: [alice, bob, 5.0]
+      - name: "coin.GAS"
+        args: []
+type: exec
+

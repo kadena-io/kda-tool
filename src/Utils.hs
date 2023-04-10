@@ -39,7 +39,6 @@ import           Kadena.SigningTypes
 import           GHC.Generics
 import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
-import           Pact.Types.SigData
 import           System.Directory
 import           System.FilePath
 ------------------------------------------------------------------------------
@@ -105,37 +104,47 @@ instance FromJSON a => FromJSON (MaybeBatch a) where
 
 --parseJsonOrYamlCommand :: [LB.ByteString] -> Either [String] [Transaction]
 --parseJsonOrYamlCommand bss =
-parseAsJsonOrYaml :: [LB.ByteString] -> Either [String] [Transaction]
-parseAsJsonOrYaml bss =
+parseAsJsonOrYaml :: Bool -> [LB.ByteString] -> Either [String] [Transaction]
+parseAsJsonOrYaml requireSigs bss =
   case partitionEithers $ A.eitherDecode <$> bss of
     ([],lvs) -> Right $ concat $ map unMaybeBatch lvs
-    (esJ,_) -> case partitionEithers $ parseTransactionViaSigData <$> bss of
+    (esJ,_) -> case partitionEithers $ parseTransactionViaSigData requireSigs <$> bss of
       ([],rvs) -> Right $ concat $ map unMaybeBatch rvs
       (esY,_) -> Left (map show esJ ++ map show esY)
 
-parseTransactionViaSigData :: LB.ByteString -> Either String (MaybeBatch Transaction)
-parseTransactionViaSigData bs = do
+parseTransactionViaSigData :: Bool -> LB.ByteString -> Either String (MaybeBatch Transaction)
+parseTransactionViaSigData requireSigs bs = do
   MaybeBatch sds <- first show $ YA.decode1Strict $ LB.toStrict bs
-  fmap MaybeBatch $ sequence $ map sigDataToTransaction sds
+  fmap MaybeBatch $ sequence $ map (commandSigDataToTransaction requireSigs) sds
 
 -- | Converts Pact's 'SigData' type to chainweb-api's 'Transaction'
 -- TODO SigData overlaps with types in the signing API as well. At some point we
 -- need to restructure all this into a much more holistic set of types.
-sigDataToTransaction :: SigData Text -> Either String Transaction
-sigDataToTransaction sd = do
-    cmdText <- note "Error: SigData 'cmd' field not found" $ _sigDataCmd sd
-    pc <- eitherDecodeStrict $ T.encodeUtf8 cmdText
-    sigs <- note "Error: SigData has missing signatures" $ sequence $ map snd $ _sigDataSigs sd
-    pure $ mkTransaction pc (map userSigToSig sigs)
+--
+-- We're parsing through CommandSigData now because that's the signing API type
+-- and it is more flexible than the old Pact SigData type because it should
+-- allow the hash field to be either present or absent.
+--sigDataToTransaction :: Bool -> SigData Text -> Either String Transaction
+--sigDataToTransaction requireSigs sd = do
+--    cmdText <- note "Error: SigData 'cmd' field not found" $ _sigDataCmd sd
+--    pc <- eitherDecodeStrict $ T.encodeUtf8 cmdText
+--    sigs <- note "Error: SigData has missing signatures" $ sequence $ map (addDummy . snd) $ _sigDataSigs sd
+--    pure $ mkTransaction pc (map userSigToSig sigs)
+--  where
+--    addDummy = maybe (if requireSigs then Nothing else Just dummySig) Just
+--    dummySig = UserSig "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 -- | Converts a 'CommandSigData' type to chainweb-api's 'Transaction'
-commandSigDataToTransaction :: CommandSigData -> Either String Transaction
-commandSigDataToTransaction csd = do
+commandSigDataToTransaction :: Bool -> CommandSigData -> Either String Transaction
+commandSigDataToTransaction requireSigs csd = do
     let cmdText = _csd_cmd csd
     pc <- eitherDecodeStrict $ T.encodeUtf8 cmdText
     sigs <- note "Error: CommandSigData has missing signatures" $
-      sequence $ map _s_userSig $ unSignatureList $ _csd_sigs csd
+      sequence $ map (addDummy . _s_userSig) $ unSignatureList $ _csd_sigs csd
     pure $ mkTransaction pc (map userSigToSig sigs)
+  where
+    addDummy = maybe (if requireSigs then Nothing else Just dummySig) Just
+    dummySig = UserSig "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 -- | Converts chainweb-api's 'Sig' type to Pact's 'UserSig'.
 userSigToSig :: UserSig -> Sig

@@ -158,8 +158,8 @@ sendToNode n ts@(t NE.:| _) = do
     url = T.unpack root <> "/send"
     root = nodePactRoot n $ _chainwebMeta_chainId $ _pactCommand_meta $ _transaction_cmd t
 
-localNodeQuery :: Node -> Transaction -> IO (Response LB.ByteString)
-localNodeQuery n t = do
+localNodeQuery :: Bool -> Node -> Transaction -> IO (Response LB.ByteString)
+localNodeQuery sigVerification n t = do
     req0 <- parseRequest url
     let req = req0
           { method = "POST"
@@ -168,7 +168,8 @@ localNodeQuery n t = do
           }
     httpLbs req (_node_httpManager n)
   where
-    url = T.unpack root <> "/local"
+    url = T.unpack root <> addQS "/local"
+    addQS p = if sigVerification then p else p <> "?signatureVerification=false"
     root = nodePactRoot n $ _chainwebMeta_chainId $ _pactCommand_meta $ _transaction_cmd t
 
 responseToValue :: Response LB.ByteString -> Value

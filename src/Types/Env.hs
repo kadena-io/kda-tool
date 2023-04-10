@@ -201,6 +201,11 @@ data NodeTxCmdArgs = NodeTxCmdArgs
   , _nodeTxCmdArgs_node :: Maybe HostPort
   } deriving (Eq,Ord,Show,Read)
 
+data LocalCmdArgs = LocalCmdArgs
+  { _nodeTxCmdArgs_txArgs :: NodeTxCmdArgs
+  , _nodeTxCmdArgs_sigVerification :: Bool
+  } deriving (Eq,Ord,Show,Read)
+
 nodeOptP :: Parser HostPort
 nodeOptP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
   [ long "node"
@@ -217,6 +222,15 @@ nodeArgP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
 
 nodeTxCmdP :: Parser NodeTxCmdArgs
 nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional nodeOptP
+
+localCmdP :: Parser LocalCmdArgs
+localCmdP = LocalCmdArgs <$> nodeTxCmdP <*> noVerifySigsP
+
+noVerifySigsP :: Parser Bool
+noVerifySigsP = flag True False $ mconcat
+  [ long "no-verify-sigs"
+  , help "Don't verify signatures (useful for testing txs before signing)"
+  ]
 
 data Holes = Holes
   deriving (Eq,Ord,Show,Read)
@@ -329,7 +343,7 @@ data SubCommand
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys (Either FilePath ChainweaverFile) (Maybe KeyIndex)
-  | Local NodeTxCmdArgs
+  | Local LocalCmdArgs
   | Mempool HostPort Text ChainId
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
@@ -423,7 +437,7 @@ networkP = strArgument $ mconcat
 
 nodeCommands :: Mod CommandFields SubCommand
 nodeCommands = mconcat
-  [ command "local" (info (Local <$> nodeTxCmdP)
+  [ command "local" (info (Local <$> localCmdP)
       (progDesc "Test commands locally with a node's /local endpoint"))
   , command "poll" (info (Poll <$> nodeTxCmdP)
       (progDesc "Poll command results with a node's /poll endpoint"))

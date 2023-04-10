@@ -26,15 +26,15 @@ import           Types.Node
 import           Utils
 ------------------------------------------------------------------------------
 
-localCommand :: Env -> NodeTxCmdArgs -> IO ()
-localCommand e args = do
+localCommand :: Env -> LocalCmdArgs -> IO ()
+localCommand e (LocalCmdArgs args verifySigs) = do
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
       logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeTxCmdArgs_files args)
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
-        allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
+        allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml verifySigs bss
         hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         forM hpPairs $ \(hp, txs) -> do
           n <- ExceptT $ getNode hp
@@ -42,7 +42,7 @@ localCommand e args = do
           logEnv e DebugS $ fromStr $
             printf "%s: testing %d commands on %d chains\n"
               (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (localNodeQuery n) txs
+          responses <- lift $ mapM (localNodeQuery verifySigs n) txs
           pure $ hostPortToText hp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure

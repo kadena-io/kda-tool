@@ -35,7 +35,7 @@ sendCommand e args = do
       logEnv e DebugS $ logStr $ "Parsing transactions from the following files:" <> (show $ _nodeTxCmdArgs_files args)
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
-        allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
+        allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml True bss
         hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         let numNets = length hpPairs
         logEnv e InfoS $ fromStr $ printf "Sending %d transactions to %d %s"

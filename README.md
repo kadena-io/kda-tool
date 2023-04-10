@@ -300,11 +300,15 @@ failed transactions. The `send` command sends transactions to the blockchain via
 the specified node, and the `poll` command checks to see whether the
 transactions have been included in a mined block yet.
 
-All three of these commands use the same format:
+All three of these commands use the same basic format:
 
 ```
 kda local *.json -n mynode.example.com:<service-api-port>
 ```
+
+The `kda local` command has one additional option `--no-verify-sigs` which lets
+you test a transaction with actual blockchain data before it has been fully
+signed. You can use this with `.yaml` files straight from `kda gen`.
 
 # Using kda-tool for smart contract development
 

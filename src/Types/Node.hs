@@ -86,16 +86,15 @@ nodeApiRoot n =
     hpText = hostPortToText (_node_server n)
     prefix = schemeText (_node_scheme n) <> hpText <> "/"
 
-nodeChainRoot :: Node -> ChainId -> Text
+nodeChainRoot :: Node -> Text -> Text
 nodeChainRoot n c =
     case (_node_serverType n) of
       PactServer -> nodeApiRoot n
       ChainwebServer ->
         nodeApiRoot n <>
-        "/chain/" <>
-        T.pack (show $ unChainId c)
+        "/chain/" <> c
 
-nodePactRoot :: Node -> ChainId -> Text
+nodePactRoot :: Node -> Text -> Text
 nodePactRoot n c =
     case (_node_serverType n) of
       PactServer -> nodeApiRoot n
@@ -131,7 +130,7 @@ mempoolPending hp network c = do
   where
     url = printf "https://%s/chainweb/0.0/%s/chain/%d/mempool/getPending" (hostPortToText hp) network (unChainId c)
 
-pollNode :: Node -> ChainId -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
+pollNode :: Node -> Text -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
 pollNode n cid rks = do
     req0 <- parseRequest url
     let bs = encode $ object [ "requestKeys" .= rks ]

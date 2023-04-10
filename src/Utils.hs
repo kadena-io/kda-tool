@@ -207,7 +207,7 @@ hasYamlExtension fp =
 countSigs :: CommandSigData -> Int
 countSigs = length . filter (isJust . _s_userSig) . unSignatureList . _csd_sigs
 
-txChain :: Transaction -> ChainId
+txChain :: Transaction -> Text
 txChain = _chainwebMeta_chainId . _pactCommand_meta . _transaction_cmd
 
 txNetwork :: Transaction -> Maybe Text

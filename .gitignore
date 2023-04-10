@@ -2,7 +2,7 @@ dist
 dist-newstyle
 *.o
 *.hi
-result
+result*
 out
 out.log
 config.json

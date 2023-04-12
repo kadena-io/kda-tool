@@ -1,4 +1,6 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Types.Node where
 
@@ -9,6 +11,7 @@ import           Chainweb.Api.Hash
 import           Chainweb.Api.NodeInfo
 import           Chainweb.Api.PactCommand
 import           Chainweb.Api.Transaction
+import           Control.Exception.Safe
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.List.NonEmpty as NE
@@ -48,25 +51,24 @@ getNode :: HostPort -> IO (Either String Node)
 getNode h = do
     httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
     req <- parseRequest ("https://" <> infoUrl)
-    resp <- httpLbs req httpsMgr
-    if statusIsSuccessful (responseStatus resp)
-      then do
-        case eitherDecode (responseBody resp) of
-          Left e -> return $ Left ("Error decoding response: " <> e)
-          Right ni -> do
-            return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
-      else do
-        httpMgr <- newManager defaultManagerSettings
-        req2 <- parseRequest ("http://" <> infoUrl)
-        resp2 <- httpLbs req2 httpMgr
-        if statusIsSuccessful (responseStatus resp2)
-          then return $ Right $ Node Http h httpMgr PactServer Nothing
-          else do
-            req3 <- parseRequest ("http://" <> infoUrl)
-            resp3 <- httpLbs req3 httpMgr
-            if statusIsSuccessful (responseStatus resp3)
-              then return $ Right $ Node Https h httpMgr PactServer Nothing
-              else return $ Left ("Error requesting from " <> versionUrl)
+    try @_ @SomeException (httpLbs req httpsMgr) >>= \case
+        Right resp | statusIsSuccessful (responseStatus resp) -> do
+            case eitherDecode (responseBody resp) of
+              Left e -> return $ Left ("Error decoding response: " <> e)
+              Right ni -> do
+                return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
+        _ -> do
+            httpMgr <- newManager defaultManagerSettings
+            req2 <- parseRequest ("http://" <> infoUrl)
+            resp2 <- httpLbs req2 httpMgr
+            if statusIsSuccessful (responseStatus resp2)
+              then return $ Right $ Node Http h httpMgr PactServer Nothing
+              else do
+                req3 <- parseRequest ("http://" <> infoUrl)
+                resp3 <- httpLbs req3 httpMgr
+                if statusIsSuccessful (responseStatus resp3)
+                  then return $ Right $ Node Https h httpMgr PactServer Nothing
+                  else return $ Left ("Error requesting from " <> versionUrl)
 
   where
     infoUrl = T.unpack $ hostPortToText h <> "/info"

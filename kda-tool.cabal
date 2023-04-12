@@ -80,6 +80,7 @@ library
     , process
     , resource-pool
     , retry
+    , safe-exceptions
     , scientific
     , servant
     , servant-client

@@ -209,10 +209,16 @@ nodeOptP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
   , help "Node hostname and optional port separated by a ':'"
   ]
 
-nodeArgP :: Parser HostPort
-nodeArgP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
+hostPortP :: Parser HostPort
+hostPortP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
   [ metavar "NODE"
   , help "Node hostname and optional port separated by a ':'"
+  ]
+
+schemeHostPortP :: Parser SchemeHostPort
+schemeHostPortP = argument (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
+  [ metavar "NODE_URL"
+  , help "Node hostname and optional port separated by a ':' (with optional scheme i.e. \"http://\")"
   ]
 
 nodeTxCmdP :: Parser NodeTxCmdArgs
@@ -325,12 +331,12 @@ oldP = flag False True $ mconcat
 
 data SubCommand
   = CombineSigs [FilePath]
-  | Cut HostPort
+  | Cut SchemeHostPort (Maybe Text) (Maybe Text)
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys (Either FilePath ChainweaverFile) (Maybe KeyIndex)
   | Local NodeTxCmdArgs
-  | Mempool HostPort Text ChainId
+  | Mempool SchemeHostPort (Maybe Text) (Maybe Text) ChainId
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
@@ -414,6 +420,12 @@ signingCommands = mconcat
   , hidden
   ]
 
+apiVerP :: Parser Text
+apiVerP = strArgument $ mconcat
+  [ metavar "API_VER"
+  , help "The chainweb API version (defaults to 0.0)"
+  ]
+
 networkP :: Parser Text
 networkP = strArgument $ mconcat
   [ metavar "NETWORK"
@@ -429,9 +441,9 @@ nodeCommands = mconcat
       (progDesc "Poll command results with a node's /poll endpoint"))
   , command "send" (info (Send <$> nodeTxCmdP)
       (progDesc "Send commands to a node's /send endpoint"))
-  , command "cut" (info (Cut <$> nodeArgP)
+  , command "cut" (info (Cut <$> schemeHostPortP <*> optional apiVerP <*> optional networkP)
       (progDesc "Query a node's /cut endpoint"))
-  , command "mempool" (info (Mempool <$> nodeArgP <*> networkP <*> chainP)
+  , command "mempool" (info (Mempool <$> schemeHostPortP <*> optional apiVerP <*> optional networkP <*> chainP)
       (progDesc "Get mempool pending transactions"))
   , commandGroup "Node Interaction Commands"
   , hidden

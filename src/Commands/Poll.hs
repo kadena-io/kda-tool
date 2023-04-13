@@ -39,7 +39,7 @@ pollCommand e args = do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
         hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode hp
+          n <- ExceptT $ getNodeServiceApi hp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: polling %d commands to %d chains\n"

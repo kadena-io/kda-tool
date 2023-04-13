@@ -41,7 +41,7 @@ sendCommand e args = do
         logEnv e InfoS $ fromStr $ printf "Sending %d transactions to %d %s"
           (length allTxs) numNets (if numNets == 1 then "network" else "networks")
         forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode hp
+          n <- ExceptT $ getNodeServiceApi hp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: sending %d commands to %d chains\n"

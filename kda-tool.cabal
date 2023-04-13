@@ -175,4 +175,5 @@ test-suite kda-tool-tests
     , hspec
 
   other-modules:
+    HostPortSpec
     TemplateSpec

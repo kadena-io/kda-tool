@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Commands.Cut
   ( cutCommand
@@ -6,6 +7,8 @@ module Commands.Cut
 
 ------------------------------------------------------------------------------
 import qualified Data.ByteString.Lazy as LB
+import           Data.Maybe
+import           Data.Text (Text)
 import qualified Data.Text.IO as T
 import           Data.Text.Encoding
 import           Network.HTTP.Client
@@ -16,17 +19,13 @@ import           Types.HostPort
 import           Types.Node
 ------------------------------------------------------------------------------
 
-cutCommand :: HostPort -> IO ()
-cutCommand hp = do
-  en <- getNode hp
-  case en of
-    Left er -> putStrLn er >> exitFailure
-    Right n -> do
-      resp <- nodeGetCut n
-      case statusCode $ responseStatus resp of
-        200 -> T.putStrLn $ decodeUtf8 $ LB.toStrict $ responseBody resp
-        _ -> do
-          putStrLn "Got unexpected response from node"
-          print resp
-          exitFailure
+cutCommand :: SchemeHostPort -> Maybe Text -> Maybe Text -> IO ()
+cutCommand shp mApiVer mNetwork = do
+  resp <- nodeGetCut shp (fromMaybe "0.0" mApiVer) (fromMaybe "mainnet01" mNetwork)
+  case statusCode $ responseStatus resp of
+    200 -> T.putStrLn $ decodeUtf8 $ LB.toStrict $ responseBody resp
+    _ -> do
+      putStrLn "Got unexpected response from node"
+      print resp
+      exitFailure
 

@@ -30,6 +30,7 @@ import           Utils
 
 pollCommand :: Env -> NodeTxCmdArgs -> IO ()
 pollCommand e args = do
+  let le = _env_logEnv e
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
@@ -39,7 +40,7 @@ pollCommand e args = do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
         hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode hp
+          n <- ExceptT $ getNode le hp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: polling %d commands to %d chains\n"

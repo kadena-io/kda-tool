@@ -60,7 +60,7 @@ appMain = do
     logLE le DebugS $ logStr $ "Loaded config: " <> show cd
     let theEnv = Env mgr le cd rand
     case c of
-      Cut hp -> cutCommand hp
+      Cut hp -> cutCommand theEnv hp
       CombineSigs files -> combineSigsCommand theEnv files
       GenTx args -> genTxCommand theEnv args
       Keygen keyType -> keygenCommand keyType

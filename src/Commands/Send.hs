@@ -29,6 +29,7 @@ import           Utils
 
 sendCommand :: Env -> NodeTxCmdArgs -> IO ()
 sendCommand e args = do
+  let le = _env_logEnv e
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
@@ -41,7 +42,7 @@ sendCommand e args = do
         logEnv e InfoS $ fromStr $ printf "Sending %d transactions to %d %s"
           (length allTxs) numNets (if numNets == 1 then "network" else "networks")
         forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode hp
+          n <- ExceptT $ getNode le hp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: sending %d commands to %d chains\n"

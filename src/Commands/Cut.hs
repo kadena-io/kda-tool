@@ -12,13 +12,15 @@ import           Network.HTTP.Client
 import           Network.HTTP.Types.Status
 import           System.Exit
 ------------------------------------------------------------------------------
+import           Types.Env
 import           Types.HostPort
 import           Types.Node
 ------------------------------------------------------------------------------
 
-cutCommand :: HostPort -> IO ()
-cutCommand hp = do
-  en <- getNode hp
+cutCommand :: Env -> HostPort -> IO ()
+cutCommand e hp = do
+  let le = _env_logEnv e
+  en <- getNode le hp
   case en of
     Left er -> putStrLn er >> exitFailure
     Right n -> do

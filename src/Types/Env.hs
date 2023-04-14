@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -15,6 +17,8 @@ import           Control.Error
 import           Control.Lens (makeLenses)
 import           Control.Monad.Reader
 import           Data.Aeson hiding (Encoding)
+import           Data.Binary.Builder
+import qualified Data.ByteString as B
 import           Data.Default
 import           Data.Function
 import           Data.List
@@ -22,10 +26,12 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Ord
+import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.Text.Encoding
 import           Katip
-import           Network.HTTP.Client (Manager)
+import           Network.HTTP.Client
 import           Options.Applicative
 import           Options.Applicative.Help.Pretty hiding ((</>))
 import           System.Directory
@@ -33,6 +39,7 @@ import           System.FilePath
 import           System.IO
 import           System.Info
 import           System.Random.MWC
+import           Text.Printf
 ------------------------------------------------------------------------------
 import           Keys
 import           Types.Encoding
@@ -102,6 +109,42 @@ logEnv e = logLE (_env_logEnv e)
 
 logLE :: MonadIO m => LogEnv -> Severity -> LogStr -> m ()
 logLE le sev s = runKatipT le $ logMsg mempty sev s
+
+logFLE :: (MonadIO m, LogItem a) => LogEnv -> Severity -> a -> LogStr -> m ()
+logFLE le sev a msg = runKatipT le $ logF a mempty sev msg
+
+instance ToObject Request where
+  toObject r = mconcat
+    [ "method" .= (decodeUtf8 $ method r)
+    , "url" .= reqUrl r
+    , "headers" .= tshow (requestHeaders r)
+    , "body" .= bodyText (requestBody r)
+    ]
+
+bodyText :: RequestBody -> Text
+bodyText r = case r of
+  RequestBodyLBS lbs -> decodeUtf8 $ toS lbs
+  RequestBodyBS bs -> toS bs
+  RequestBodyBuilder _ b -> toS $ toLazyByteString b
+  _ -> "body not available"
+
+reqUrl :: Request -> Text
+reqUrl r =
+    T.pack $ printf "%s://%s:%d%s%s" s h po pa qs
+  where
+    s = if secure r then "https" else "http" :: String
+    h = decodeUtf8 $ host r
+    po = port r
+    pa = decodeUtf8 $ path r
+    qs = let q = queryString r
+          in if B.length q == 0 then "" else "?" <> decodeUtf8 q
+
+instance LogItem Request where
+  payloadKeys v _ = case v of
+    V0 -> SomeKeys []
+    V1 -> SomeKeys ["method"]
+    V2 -> SomeKeys ["url"]
+    V3 -> AllKeys
 
 data ChainweaverFile = ChainweaverFile
   deriving (Eq,Ord,Show,Read)
@@ -340,6 +383,7 @@ data SubCommand
 data Args = Args
   { _args_command :: SubCommand
   , _args_severity :: Severity
+  , _args_verbosity :: Verbosity
   , _args_configFile :: Maybe FilePath
   }
 
@@ -355,6 +399,23 @@ logLevelP = option (maybeReader (textToSeverity . T.pack)) $ mconcat
   , completeWith (map (T.unpack . renderSeverity) [minBound..maxBound])
   ]
 
+verbosityP :: Parser Verbosity
+verbosityP = option (maybeReader (verbosityFromText . T.pack)) $ mconcat
+  [ long "verbosity"
+  , short 'v'
+  , metavar "NUM"
+  , value V1
+  , help "Log verbosity (0-3)"
+  , completeWith (map show [0..3 :: Int])
+  ]
+
+verbosityFromText :: Text -> Maybe Verbosity
+verbosityFromText "0" = Just V0
+verbosityFromText "1" = Just V1
+verbosityFromText "2" = Just V2
+verbosityFromText "3" = Just V3
+verbosityFromText _ = Nothing
+
 configFileP :: Parser FilePath
 configFileP = strOption $ mconcat
   [ long "config-file"
@@ -365,7 +426,7 @@ configFileP = strOption $ mconcat
   ]
 
 envP :: Parser Args
-envP = Args <$> commands <*> logLevelP <*> optional configFileP
+envP = Args <$> commands <*> logLevelP <*> verbosityP <*> optional configFileP
 
 keyTypeP :: Parser KeyType
 keyTypeP = argument (eitherReader (keyTypeFromText . T.pack)) $ mconcat

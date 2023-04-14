@@ -48,6 +48,7 @@ library
     , base >= 4.13 && < 5
     , base16
     , base64
+    , binary
     , bytestring >= 0.10.12
     , cardano-crypto
     , cassava

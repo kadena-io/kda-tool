@@ -45,7 +45,7 @@ pollCommand e args = do
           logEnv e DebugS $ fromStr $
             printf "%s: polling %d commands to %d chains\n"
               (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (\ts -> pollNode n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
+          responses <- lift $ mapM (\ts -> pollNode le n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
           pure $ hostPortToText hp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure

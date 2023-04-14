@@ -43,7 +43,7 @@ localCommand e args = do
           logEnv e DebugS $ fromStr $
             printf "%s: testing %d commands on %d chains\n"
               (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (localNodeQuery n) txs
+          responses <- lift $ mapM (localNodeQuery le n) txs
           pure $ hostPortToText hp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure

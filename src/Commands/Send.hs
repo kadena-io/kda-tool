@@ -47,7 +47,7 @@ sendCommand e args = do
           logEnv e DebugS $ fromStr $
             printf "%s: sending %d commands to %d chains\n"
               (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (sendToNode n) groups
+          responses <- lift $ mapM (sendToNode le n) groups
           pure $ hostPortToText hp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure

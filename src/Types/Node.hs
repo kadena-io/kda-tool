@@ -54,7 +54,7 @@ getNode le h = do
     httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
     let httpsUrl = "https://" <> infoUrl
     req <- parseRequest httpsUrl
-    logLE le DebugS $ fromStr $ "getNode: trying " <> httpsUrl
+    logFLE le DebugS req "getNode: trying chainweb https"
     try @_ @SomeException (httpLbs req httpsMgr) >>= \case
         Right resp | statusIsSuccessful (responseStatus resp) -> do
             case eitherDecode (responseBody resp) of
@@ -65,13 +65,13 @@ getNode le h = do
             httpMgr <- newManager defaultManagerSettings
             let httpUrl = "http://" <> infoUrl
             req2 <- parseRequest httpUrl
-            logLE le DebugS $ fromStr $ "getNode: trying " <> httpUrl
+            logFLE le DebugS req2 "getNode: trying chainweb http"
             resp2 <- httpLbs req2 httpMgr
             if statusIsSuccessful (responseStatus resp2)
               then return $ Right $ Node Http h httpMgr PactServer Nothing
               else do
                 req3 <- parseRequest ("http://" <> infoUrl)
-                logLE le DebugS $ fromStr $ "getNode: trying " <> infoUrl
+                logFLE le DebugS req3 "getNode: trying pact server"
                 resp3 <- httpLbs req3 httpMgr
                 if statusIsSuccessful (responseStatus resp3)
                   then return $ Right $ Node Https h httpMgr PactServer Nothing
@@ -139,8 +139,8 @@ mempoolPending hp network c = do
   where
     url = printf "https://%s/chainweb/0.0/%s/chain/%d/mempool/getPending" (hostPortToText hp) network (unChainId c)
 
-pollNode :: Node -> Text -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
-pollNode n cid rks = do
+pollNode :: LogEnv -> Node -> Text -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
+pollNode le n cid rks = do
     req0 <- parseRequest url
     let bs = encode $ object [ "requestKeys" .= rks ]
     let req = req0
@@ -148,13 +148,14 @@ pollNode n cid rks = do
           , requestBody = RequestBodyLBS bs
           , requestHeaders = [(hContentType, "application/json")]
           }
+    logFLE le DebugS req "sending poll"
     httpLbs req (_node_httpManager n)
   where
     url = T.unpack root <> "/poll"
     root = nodePactRoot n cid
 
-sendToNode :: Node -> NE.NonEmpty Transaction -> IO (Response LB.ByteString)
-sendToNode n ts@(t NE.:| _) = do
+sendToNode :: LogEnv -> Node -> NE.NonEmpty Transaction -> IO (Response LB.ByteString)
+sendToNode le n ts@(t NE.:| _) = do
     req0 <- parseRequest url
     let bs = encode $ object [ "cmds" .= ts ]
     let req = req0
@@ -162,19 +163,21 @@ sendToNode n ts@(t NE.:| _) = do
           , requestBody = RequestBodyLBS bs
           , requestHeaders = [(hContentType, "application/json")]
           }
+    logFLE le DebugS req "sending send"
     httpLbs req (_node_httpManager n)
   where
     url = T.unpack root <> "/send"
     root = nodePactRoot n $ _chainwebMeta_chainId $ _pactCommand_meta $ _transaction_cmd t
 
-localNodeQuery :: Node -> Transaction -> IO (Response LB.ByteString)
-localNodeQuery n t = do
+localNodeQuery :: LogEnv -> Node -> Transaction -> IO (Response LB.ByteString)
+localNodeQuery le n t = do
     req0 <- parseRequest url
     let req = req0
           { method = "POST"
           , requestBody = RequestBodyLBS $ encode t
           , requestHeaders = [(hContentType, "application/json")]
           }
+    logFLE le DebugS req "sending local"
     httpLbs req (_node_httpManager n)
   where
     url = T.unpack root <> "/local"

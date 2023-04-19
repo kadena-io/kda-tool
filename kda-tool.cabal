@@ -126,10 +126,11 @@ test-suite kda-tool-tests
     , aeson
     , async
     , attoparsec
-    , base >= 4.13 && < 5
+    , base
     , base16
     , base64
-    , bytestring >= 0.10.12
+    , binary
+    , bytestring
     , cardano-crypto
     , cassava
     , chainweb-api

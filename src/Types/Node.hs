@@ -58,7 +58,7 @@ getNode le h = do
     try @_ @SomeException (httpLbs req httpsMgr) >>= \case
         Right resp | statusIsSuccessful (responseStatus resp) -> do
             case eitherDecode (responseBody resp) of
-              Left e -> return $ Left ("Error decoding response: " <> e)
+              Left e -> return $ Left ("Error decoding HTTPS response: " <> e)
               Right ni -> do
                 return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
         _ -> do
@@ -68,9 +68,11 @@ getNode le h = do
             logFLE le DebugS req2 "getNode: trying chainweb http"
             resp2 <- httpLbs req2 httpMgr
             if statusIsSuccessful (responseStatus resp2)
-              then return $ Right $ Node Http h httpMgr PactServer Nothing
+              then case eitherDecode (responseBody resp2) of
+                Left e -> return $ Left ("Error decoding HTTP response: " <> e)
+                Right ni -> return $ Right $ Node Http h httpMgr ChainwebServer (Just ni)
               else do
-                req3 <- parseRequest ("http://" <> infoUrl)
+                req3 <- parseRequest ("https://" <> infoUrl)
                 logFLE le DebugS req3 "getNode: trying pact server"
                 resp3 <- httpLbs req3 httpMgr
                 if statusIsSuccessful (responseStatus resp3)
@@ -186,7 +188,10 @@ localNodeQuery le n t = do
 responseToValue :: Response LB.ByteString -> Value
 responseToValue r = do
     case eitherDecode $ responseBody r of
-      Left e -> object [ "error" .= e ]
+      Left e -> object
+        [ "error" .= e
+        , "nodeResponse" .= decodeUtf8 (LB.toStrict (responseBody r))
+        ]
       Right (v :: Value) -> object
         [ "statusCode" .= statusCode s
         , "statusMsg" .= decodeUtf8 (statusMessage s)

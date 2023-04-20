@@ -169,7 +169,7 @@ csdToSigningRequest csd = do
             gasLimit = Just $ _pmGasLimit meta
             ttl = Just $ _pmTTL meta
             sender = Just $ AccountName $ _pmSender meta
-            extraSigners = case map (PublicKey . toS . _siPubKey) $ filter (\s -> null $ _siCapList s) $ _pSigners p of
+            extraSigners = case map (PublicKeyText . toS . _siPubKey) $ filter (\s -> null $ _siCapList s) $ _pSigners p of
               [] -> Nothing
               ks -> Just ks
         pure $ SigningRequest code d caps n cid gasLimit ttl sender extraSigners

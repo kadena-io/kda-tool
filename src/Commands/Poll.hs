@@ -30,6 +30,7 @@ import           Utils
 
 pollCommand :: Env -> NodeTxCmdArgs -> IO ()
 pollCommand e args = do
+  let le = _env_logEnv e
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
@@ -39,12 +40,12 @@ pollCommand e args = do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml True bss
         hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode hp
+          n <- ExceptT $ getNode le hp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: polling %d commands to %d chains\n"
               (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (\ts -> pollNode n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
+          responses <- lift $ mapM (\ts -> pollNode le n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
           pure $ hostPortToText hp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure

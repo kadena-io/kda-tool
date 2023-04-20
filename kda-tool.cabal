@@ -48,6 +48,7 @@ library
     , base >= 4.13 && < 5
     , base16
     , base64
+    , binary
     , bytestring >= 0.10.12
     , cardano-crypto
     , cassava
@@ -80,6 +81,7 @@ library
     , process
     , resource-pool
     , retry
+    , safe-exceptions
     , scientific
     , servant
     , servant-client
@@ -124,10 +126,11 @@ test-suite kda-tool-tests
     , aeson
     , async
     , attoparsec
-    , base >= 4.13 && < 5
+    , base
     , base16
     , base64
-    , bytestring >= 0.10.12
+    , binary
+    , bytestring
     , cardano-crypto
     , cassava
     , chainweb-api

@@ -29,6 +29,7 @@ import           Utils
 
 sendCommand :: Env -> NodeTxCmdArgs -> IO ()
 sendCommand e args = do
+  let le = _env_logEnv e
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
     fs -> do
@@ -36,18 +37,18 @@ sendCommand e args = do
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
-        hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
-        let numNets = length hpPairs
+        shpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
+        let numNets = length shpPairs
         logEnv e InfoS $ fromStr $ printf "Sending %d transactions to %d %s"
           (length allTxs) numNets (if numNets == 1 then "network" else "networks")
-        forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNodeServiceApi hp
+        forM shpPairs $ \(shp, txs) -> do
+          n <- ExceptT $ getNodeServiceApi le shp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: sending %d commands to %d chains\n"
-              (hostPortToText hp) (length txs) (length groups)
-          responses <- lift $ mapM (sendToNode n) groups
-          pure $ hostPortToText hp .= map responseToValue responses
+              (schemeHostPortToText shp) (length txs) (length groups)
+          responses <- lift $ mapM (sendToNode le n) groups
+          pure $ schemeHostPortToText shp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
         Right results -> T.putStrLn $ toS $ encode $ Object $ mconcat results

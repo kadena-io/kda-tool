@@ -12,13 +12,25 @@ import           Types.HostPort
 
 hostPortSpec :: Spec
 hostPortSpec = do
-  mapM_ testShpPair shpPairs
-  it "fails properly on invalid port" $
-    hostPortFromText "foo.example.com:a" `shouldBe`
-    Left "Error parsing port in: foo.example.com:a"
-  it "fails properly on invalid scheme" $
-    schemeHostPortFromText "file://foo.example.com" `shouldBe`
-    Left "Invalid scheme for host file://foo.example.com"
+  describe "HostPort" $ do
+    let h = "foo.example.com"
+        p = 80
+    it "fails properly on invalid port" $
+      hostPortFromText (h <> ":a") `shouldBe`
+      Left "Error parsing port in: foo.example.com:a"
+
+    -- These two cases are covered by the SchemeHostPort tests below but
+    -- including these here for good measure / clarity.
+    it "parses without a port" $
+      hostPortFromText h `shouldBe` Right (HostPort h Nothing)
+    it "parses with a port" $
+      hostPortFromText (h <> ":" <> T.pack (show p)) `shouldBe`
+      Right (HostPort h (Just p))
+  describe "SchemeHostPort" $ do
+    mapM_ testShpPair shpPairs
+    it "fails properly on invalid scheme" $
+      schemeHostPortFromText "file://foo.example.com" `shouldBe`
+      Left "Invalid scheme for host file://foo.example.com"
 
 testShpPair :: (Text, SchemeHostPort) -> Spec
 testShpPair (t, hp) = do

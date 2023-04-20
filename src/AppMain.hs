@@ -36,15 +36,16 @@ import           Types.Env
 
 appMain :: IO ()
 appMain = do
-    Args c sev mcf <- execParser opts
-    let verbosity = V2
+    Args c severity verbosity mcf <- execParser opts
     mgr <- newManager tlsManagerSettings
 
-    s1 <- liftIO $ mkHandleScribe ColorIfTerminal stderr (permitItem sev) verbosity
+    s1 <- liftIO $ mkHandleScribe ColorIfTerminal stderr
+      (permitItem severity) verbosity
     le <- liftIO $ registerScribe "stderr" s1 defaultScribeSettings
       =<< initLogEnv "myapp" "production"
 
-    logLE le DebugS $ logStr $ "Logging with severity " <> show sev
+    logLE le DebugS $ fromStr $ printf "Logging with severity %s, verbosity %s"
+      (show severity) (show verbosity)
     rand <- createSystemRandom
 
     cf <- maybe (getXdgDirectory XdgConfig ("kda" </> "config.json")) pure mcf
@@ -60,13 +61,13 @@ appMain = do
     logLE le DebugS $ logStr $ "Loaded config: " <> show cd
     let theEnv = Env mgr le cd rand
     case c of
-      Cut hp ma mn -> cutCommand hp ma mn
+      Cut hp ma mn -> cutCommand theEnv hp ma mn
       CombineSigs files -> combineSigsCommand theEnv files
       GenTx args -> genTxCommand theEnv args
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
       Local args -> localCommand theEnv args
-      Mempool hp ma mn cid -> mempoolCommand hp ma mn cid
+      Mempool hp cid ma mn -> mempoolCommand hp ma mn cid
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args

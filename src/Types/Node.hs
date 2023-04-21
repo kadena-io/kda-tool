@@ -14,7 +14,6 @@ import           Chainweb.Api.PactCommand
 import           Chainweb.Api.Transaction
 import           Control.Applicative
 import           Control.Error
-import           Control.Exception.Safe
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.List.NonEmpty as NE

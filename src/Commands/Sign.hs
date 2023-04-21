@@ -16,6 +16,7 @@ import           Data.List
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text (Text)
+import qualified Data.Text.IO as T
 import           Data.Text.Encoding
 import qualified Data.YAML.Aeson as YA
 import           Kadena.SigningTypes
@@ -34,8 +35,9 @@ import           Utils
 
 signCommand :: SignArgs -> IO ()
 signCommand args = do
-  let index = _signArgs_keyInd args
+  let mIndex = _signArgs_keyInd args
   let files = _signArgs_files args
+  let enc = fromMaybe Yaml $ _signArgs_encoding args
 
   -- NOTE: The most convenient signing UX is to take a list of files on the
   -- command line and sign them all with the supplied key, adding the
@@ -43,32 +45,37 @@ signCommand args = do
   -- have a field for signatures. Therefore, if we want to sign any other
   -- encoding, we'll only be able to do that for a single message at a time
   -- because none of those encodings have provisions for adding a signature.
-  if all hasYamlExtension files
-    then do
-      res <- runExceptT $ do
-        (keyfile, kh) <- lift $ getKeyFile $ _signArgs_keyFile args
-        kkey <- fmapLT (\e -> "Error reading key material from " <> keyfile <> ": " <> e) $ ExceptT $ readKadenaKey kh
-        case files of
-          [] -> throwError "No files to sign"
-          fs -> lift $ do
-            mfileCounts <- mapM (signYamlFile kkey index) fs
-            let fileCounts = catMaybes mfileCounts
-            printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
-      case res of
-        Left e -> putStrLn e >> exitFailure
-        Right _ -> pure ()
-    else case files of
-      [] -> putStrLn "No files to sign"
-      [f] ->
-        case filenameToEncoding f of
-          Nothing -> printf "Error: %s has an unrecognized extension.  Must be one of raw, b16, b64, b64url, or yaml." f >> exitFailure
-          Just enc -> signOther f enc
-      _ -> putStrLn "Cannot sign more than one non-yaml file at a time" >> exitFailure
+  res <- runExceptT $ do
+    (keyfile, kh) <- lift $ getKeyFile $ _signArgs_keyFile args
+    kkey <- fmapLT (\e -> "Error reading key material from " <> keyfile <> ": " <> e) $ ExceptT $ readKadenaKey kh
+    if all hasYamlExtension files && enc == Yaml
+      then do
+          case files of
+            [] -> throwError "No files to sign"
+            fs -> lift $ do
+              mfileCounts <- mapM (signYamlFile kkey mIndex enc) fs
+              let fileCounts = catMaybes mfileCounts
+              printf "Wrote %d signatures to the following files: %s\n" (sum $ map snd fileCounts) (intercalate ", " $ map fst fileCounts)
+      else case files of
+        [] -> lift $ putStrLn "No files to sign"
+        [f] -> lift $
+          case mIndex of
+            Nothing -> die "Must supply an HD key index with -i"
+            Just ind -> signOther f kkey ind enc
+        _ -> lift $ putStrLn "Cannot sign more than one non-yaml file at a time" >> exitFailure
+  case res of
+    Left e -> putStrLn e >> exitFailure
+    Right _ -> pure ()
 
-signYamlFile :: KadenaKey -> Maybe KeyIndex -> FilePath -> IO (Maybe (FilePath, Int))
-signYamlFile kkey mindex msgFile = do
+signYamlFile
+  :: KadenaKey
+  -> Maybe KeyIndex
+  -> Encoding
+  -> FilePath
+  -> IO (Maybe (FilePath, Int))
+signYamlFile kkey mindex enc msgFile = do
   mh <- openFile msgFile ReadWriteMode
-  rawbs <- readAsEncoding Yaml mh
+  rawbs <- readAsEncoding enc mh
   hClose mh
   case YA.decode1Strict rawbs of
     Left _ -> die $ printf "Error: %s file contents does not match its extension." msgFile
@@ -137,29 +144,21 @@ addSig pub sig (SignatureList sigs) = SignatureList $ go sigs
       let k = _s_pubKey c
        in if k == pub then (CSDSigner k (Just sig)) : go cs else c : go cs
 
-signOther :: FilePath -> Encoding -> IO ()
---signOther msgFile enc = do
-signOther _ _ = do
-  putStrLn "Not implemented yet"
---  rawbs <- readAsEncoding enc mh
---  let ebs = genericDecode enc rawbs
---  case ebs of
---    Left e -> die $ printf "Error: %s file contents does not match its extension." msgFile
---    Right msg -> do
---      let pub = getMaterialPublic material
---          sig = signWithMaterial material msg
---      case enc of
---        Yaml -> do
---          let res = do
---                v :: Value <- first  (T.pack . snd) $ YA.decode1Strict rawbs
---                pure (v & key "sigs" . key pub .~ String (decodeUtf8 sig))
---              encScalar s@(Y.SStr t) = case T.find (== '"') t of
---                Just _ -> Right (Y.untagged, Y.SingleQuoted, t)
---                Nothing -> Y.schemaEncoderScalar Y.coreSchemaEncoder s
---              encScalar s = Y.schemaEncoderScalar Y.coreSchemaEncoder s
---              senc = Y.setScalarStyle encScalar Y.coreSchemaEncoder
---          case res of
---            Right v -> LB.putStrLn $ YA.encodeValue' senc Y.UTF8 [v]
---            Left e -> die $ T.unpack e
---        _ -> do
---          T.putStrLn $ pub <> ": " <> decodeUtf8 sig
+signOther :: FilePath -> KadenaKey -> KeyIndex -> Encoding -> IO ()
+signOther msgFile kkey kind enc = do
+  mh <- fileOrStdin msgFile
+  rawbs <- readAsEncoding enc mh
+  res <- runExceptT $ do
+    let mkParseErr e = printf "Error parsing %s as %s:\n%s"
+          msgFile (encodingToText enc) (show e)
+    msg <- fmapLT mkParseErr $
+      hoistEither $ genericDecode enc rawbs
+    let (pubKey, sig) = case kkey of
+          HDRoot xprv mpass ->
+            let (esec, pub) = generateCryptoPairFromRoot xprv (fromMaybe "" mpass) kind
+            in (pub, sigToText $ signHD esec (fromMaybe "" mpass) msg)
+          PlainKeyPair sec pub -> (PublicKey $ BA.convert pub, toB16 $ BA.convert $ sign sec msg)
+    lift $ T.putStrLn $ pubKeyToText pubKey <> ": " <> sig
+  case res of
+    Left e -> die e
+    Right _ -> pure ()

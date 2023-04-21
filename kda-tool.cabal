@@ -26,6 +26,7 @@ library
     Commands.Poll
     Commands.Send
     Commands.Sign
+    Commands.Verify
     Commands.WalletSign
     Keys
     Logger

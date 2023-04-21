@@ -153,6 +153,7 @@ data SignArgs = SignArgs
   { _signArgs_keyFile :: Either FilePath ChainweaverFile
   , _signArgs_keyInd :: Maybe KeyIndex
   , _signArgs_files :: [FilePath]
+  , _signArgs_encoding :: Maybe Encoding
   } deriving (Eq,Ord,Show,Read)
 
 data WalletSignMethod = OldSign | Quicksign
@@ -163,13 +164,13 @@ data WalletSignArgs = WalletSignArgs
   , _walletSignArgs_method :: WalletSignMethod
   } deriving (Eq,Ord,Show,Read)
 
-encodingOption :: Parser Encoding
-encodingOption = option (maybeReader $ textToEncoding . T.pack) $ mconcat
+encodingOption :: Encoding -> Parser Encoding
+encodingOption defEnc = option (maybeReader $ textToEncoding . T.pack) $ mconcat
   [ short 'e'
   , long "encoding"
-  , value Yaml
   , metavar "ENCODING"
-  , help "Message encoding (raw, b16, b64, b64url, or yaml (default: yaml))"
+  , help $ printf "Message encoding (raw, b16, b64, b64url, or yaml (default: %s))"
+      (encodingToText defEnc)
   , completeWith (map (T.unpack . encodingToText) [minBound..maxBound])
   ]
 
@@ -228,7 +229,50 @@ keyFileOrChainweaverP = flag' (Right ChainweaverFile) opts <|> fmap Left keyFile
       ]
 
 signP :: Parser SignArgs
-signP = SignArgs <$> keyFileOrChainweaverP <*> optional keyIndexP <*> many txFileP
+signP = SignArgs
+  <$> keyFileOrChainweaverP
+  <*> optional keyIndexP
+  <*> many txFileP
+  <*> optional (encodingOption Yaml)
+
+data VerifyArgs = VerifyArgs
+  { _verifyArgs_msgFile :: FilePath
+  , _verifyArgs_pubKey :: PublicKey
+  , _verifyArgs_sig :: Signature
+  , _verifyArgs_encoding :: Maybe Encoding
+  } deriving (Eq,Ord,Show)
+
+verifyP :: Parser VerifyArgs
+verifyP = VerifyArgs
+  <$> msgFileP
+  <*> pubKeyP
+  <*> signatureP
+  <*> optional (encodingOption B64Url)
+
+pubKeyP :: Parser PublicKey
+pubKeyP = argument pubKeyReader $ mconcat
+  [ metavar "PUB_KEY"
+  , help "Public key (in hex)"
+  ]
+  where
+    pubKeyReader = eitherReader (fmapL T.unpack . toPubKey . T.pack)
+
+signatureP :: Parser Signature
+signatureP = argument signatureReader $ mconcat
+  [ metavar "SIGNATURE"
+  , help "Signature (in hex)"
+  ]
+  where
+    signatureReader = eitherReader
+      ((either (Left . T.unpack) toSignature) . fromB16 . T.pack)
+
+msgFileP :: Parser FilePath
+msgFileP = strOption $ mconcat
+  [ long "msg"
+  , short 'm'
+  , metavar "MSG_FILE"
+  , help "File containing message to verify (usually a base64Url tx hash)"
+  ]
 
 walletMethodP :: Parser WalletSignMethod
 walletMethodP = flag Quicksign OldSign $ mconcat
@@ -377,6 +421,7 @@ data SubCommand
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
+  | Verify VerifyArgs
   | WalletSign WalletSignArgs
   deriving (Eq,Ord,Show)
 
@@ -469,6 +514,8 @@ signingCommands = mconcat
       (progDesc "Combine signatures from multiple files"))
   , command "sign" (info (Sign <$> signP)
       (progDesc "Sign transactions"))
+  , command "verify" (info (Verify <$> verifyP)
+      (progDesc "Verify signature"))
   , command "wallet-sign" (info (WalletSign <$> walletSignP)
       (progDesc "Send transactions to a wallet for signing"))
   , commandGroup "Transaction Signing Commands"

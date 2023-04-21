@@ -38,9 +38,7 @@ localCommand e args = do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml bss
         shpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
         forM shpPairs $ \(shp, txs) -> do
-          logEnv e DebugS $ logStr "Here A"
           n <- ExceptT $ getNodeServiceApi le shp
-          logEnv e DebugS $ logStr "Here B"
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: testing %d commands on %d chains\n"

@@ -63,62 +63,6 @@ getNodeServiceApi le shp = do
         tryChainwebInfo le s hp <|>
         tryPact le s hp
 
--- ||||||| 823d82c
--- getNode :: HostPort -> IO (Either String Node)
--- getNode h = do
---     httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
---     req <- parseRequest ("https://" <> infoUrl)
---     resp <- httpLbs req httpsMgr
---     if statusIsSuccessful (responseStatus resp)
---       then do
---         case eitherDecode (responseBody resp) of
---           Left e -> return $ Left ("Error decoding response: " <> e)
---           Right ni -> do
---             return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
---       else do
---         httpMgr <- newManager defaultManagerSettings
---         req2 <- parseRequest ("http://" <> infoUrl)
---         resp2 <- httpLbs req2 httpMgr
---         if statusIsSuccessful (responseStatus resp2)
---           then return $ Right $ Node Http h httpMgr PactServer Nothing
---           else do
---             req3 <- parseRequest ("http://" <> infoUrl)
---             resp3 <- httpLbs req3 httpMgr
---             if statusIsSuccessful (responseStatus resp3)
---               then return $ Right $ Node Https h httpMgr PactServer Nothing
---               else return $ Left ("Error requesting from " <> versionUrl)
--- =======
--- getNode :: LogEnv -> HostPort -> IO (Either String Node)
--- getNode le h = do
---     httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
---     let httpsUrl = "https://" <> infoUrl
---     req <- parseRequest httpsUrl
---     logFLE le DebugS req "getNode: trying chainweb https"
---     try @_ @SomeException (httpLbs req httpsMgr) >>= \case
---         Right resp | statusIsSuccessful (responseStatus resp) -> do
---             case eitherDecode (responseBody resp) of
---               Left e -> return $ Left ("Error decoding HTTPS response: " <> e)
---               Right ni -> do
---                 return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
---         _ -> do
---             httpMgr <- newManager defaultManagerSettings
---             let httpUrl = "http://" <> infoUrl
---             req2 <- parseRequest httpUrl
---             logFLE le DebugS req2 "getNode: trying chainweb http"
---             resp2 <- httpLbs req2 httpMgr
---             if statusIsSuccessful (responseStatus resp2)
---               then case eitherDecode (responseBody resp2) of
---                 Left e -> return $ Left ("Error decoding HTTP response: " <> e)
---                 Right ni -> return $ Right $ Node Http h httpMgr ChainwebServer (Just ni)
---               else do
---                 req3 <- parseRequest ("https://" <> infoUrl)
---                 logFLE le DebugS req3 "getNode: trying pact server"
---                 resp3 <- httpLbs req3 httpMgr
---                 if statusIsSuccessful (responseStatus resp3)
---                   then return $ Right $ Node Https h httpMgr PactServer Nothing
---                   else return $ Left ("Error requesting from " <> infoUrl)
--- >>>>>>> master
-
 getNodeP2PApi :: LogEnv -> SchemeHostPort -> IO (Either String Node)
 getNodeP2PApi le shp = do
     let hp = _shp_hostPort shp

@@ -258,14 +258,22 @@ hostPortP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
   , help "Node hostname and optional port separated by a ':'"
   ]
 
-schemeHostPortP :: Parser SchemeHostPort
-schemeHostPortP = argument (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
+schemeHostPortArgP :: Parser SchemeHostPort
+schemeHostPortArgP = argument (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
   [ metavar "NODE_URL"
   , help "Node hostname and optional port separated by a ':' (with optional scheme i.e. \"http://\")"
   ]
 
+schemeHostPortOptP :: Parser SchemeHostPort
+schemeHostPortOptP = option (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
+  [ long "node"
+  , short 'n'
+  , metavar "NODE_URL"
+  , help "Node hostname and optional port separated by a ':' (with optional scheme i.e. \"http://\")"
+  ]
+
 nodeTxCmdP :: Parser NodeTxCmdArgs
-nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional schemeHostPortP
+nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional schemeHostPortOptP
 
 data Holes = Holes
   deriving (Eq,Ord,Show,Read)
@@ -502,9 +510,9 @@ nodeCommands = mconcat
       (progDesc "Poll command results with a node's /poll endpoint"))
   , command "send" (info (Send <$> nodeTxCmdP)
       (progDesc "Send commands to a node's /send endpoint"))
-  , command "cut" (info (Cut <$> schemeHostPortP <*> optional apiVerP <*> optional networkP)
+  , command "cut" (info (Cut <$> schemeHostPortArgP <*> optional apiVerP <*> optional networkP)
       (progDesc "Query a node's /cut endpoint"))
-  , command "mempool" (info (Mempool <$> schemeHostPortP <*> chainP <*> optional apiVerP <*> optional networkP)
+  , command "mempool" (info (Mempool <$> schemeHostPortArgP <*> chainP <*> optional apiVerP <*> optional networkP)
       (progDesc "Get mempool pending transactions"))
   , commandGroup "Node Interaction Commands"
   , hidden

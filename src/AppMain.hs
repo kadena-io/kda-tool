@@ -30,6 +30,7 @@ import           Commands.Mempool
 import           Commands.Poll
 import           Commands.Send
 import           Commands.Sign
+import           Commands.Verify
 import           Commands.WalletSign
 import           Types.Env
 ------------------------------------------------------------------------------
@@ -71,6 +72,7 @@ appMain = do
       Poll args -> pollCommand theEnv args
       Send args -> sendCommand theEnv args
       Sign args -> signCommand args
+      Verify args -> verifyCommand args
       WalletSign args -> walletSignCommand theEnv args
 
   where

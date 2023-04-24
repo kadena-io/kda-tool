@@ -183,13 +183,13 @@ genPairFromPhrase phrase idx =
   generateCryptoPairFromRoot (mnemonicToRoot phrase) "" idx
 
 newtype PublicKey = PublicKey ByteString
-  deriving (Show, Eq)
+  deriving (Eq, Ord, Show)
 
 newtype EncryptedPrivateKey =
   EncryptedPrivateKey { unEncryptePrivateKey :: Crypto.XPrv }
 
 newtype Signature = Signature Crypto.XSignature
-  deriving (Show, Eq)
+  deriving (Eq, Ord, Show)
 
 sigToText :: Signature -> Text
 sigToText (Signature sig) = toB16 $ Crypto.unXSignature sig

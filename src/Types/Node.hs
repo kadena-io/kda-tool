@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Types.Node where
@@ -11,10 +12,12 @@ import           Chainweb.Api.Hash
 import           Chainweb.Api.NodeInfo
 import           Chainweb.Api.PactCommand
 import           Chainweb.Api.Transaction
-import           Control.Exception.Safe
+import           Control.Applicative
+import           Control.Error
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.List.NonEmpty as NE
+import           Data.String.Conv
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
@@ -30,13 +33,6 @@ import           Types.Env
 import           Types.HostPort
 ------------------------------------------------------------------------------
 
-data Scheme = Http | Https
-  deriving (Eq,Ord,Show)
-
-schemeText :: Scheme -> Text
-schemeText Https = "https://"
-schemeText Http = "http://"
-
 data ServerType = PactServer | ChainwebServer
   deriving (Eq,Ord,Show)
 
@@ -49,39 +45,88 @@ data Node = Node
   -- ^ mainnet01, testnet04, etc or Nothing if it's a pact -s server
   }
 
-getNode :: LogEnv -> HostPort -> IO (Either String Node)
-getNode le h = do
-    httpsMgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
-    let httpsUrl = "https://" <> infoUrl
-    req <- parseRequest httpsUrl
-    logFLE le DebugS req "getNode: trying chainweb https"
-    try @_ @SomeException (httpLbs req httpsMgr) >>= \case
-        Right resp | statusIsSuccessful (responseStatus resp) -> do
-            case eitherDecode (responseBody resp) of
-              Left e -> return $ Left ("Error decoding HTTPS response: " <> e)
-              Right ni -> do
-                return $ Right $ Node Https h httpsMgr ChainwebServer (Just ni)
-        _ -> do
-            httpMgr <- newManager defaultManagerSettings
-            let httpUrl = "http://" <> infoUrl
-            req2 <- parseRequest httpUrl
-            logFLE le DebugS req2 "getNode: trying chainweb http"
-            resp2 <- httpLbs req2 httpMgr
-            if statusIsSuccessful (responseStatus resp2)
-              then case eitherDecode (responseBody resp2) of
-                Left e -> return $ Left ("Error decoding HTTP response: " <> e)
-                Right ni -> return $ Right $ Node Http h httpMgr ChainwebServer (Just ni)
-              else do
-                req3 <- parseRequest ("https://" <> infoUrl)
-                logFLE le DebugS req3 "getNode: trying pact server"
-                resp3 <- httpLbs req3 httpMgr
-                if statusIsSuccessful (responseStatus resp3)
-                  then return $ Right $ Node Https h httpMgr PactServer Nothing
-                  else return $ Left ("Error requesting from " <> infoUrl)
+getNodeServiceApi :: LogEnv -> SchemeHostPort -> IO (Either String Node)
+getNodeServiceApi le shp = do
+    -- TODO Add exception handling from below comment & delete comment
 
+    let hp = _shp_hostPort shp
+    case _shp_scheme shp of
+      Nothing -> runExceptT $
+        tryChainwebInfo le Https hp <|>
+        tryChainwebInfo le Http hp <|>
+        tryPact le Http hp
+        -- Only try http for pact -s servers because that's the overwhelming
+        -- default. If a user wants to use https with a pact server, they can
+        -- do so by specifying the scheme manually.
+      Just s -> runExceptT $
+        tryChainwebInfo le s hp <|>
+        tryPact le s hp
+
+getNodeP2PApi :: LogEnv -> SchemeHostPort -> IO (Either String Node)
+getNodeP2PApi le shp = do
+    let hp = _shp_hostPort shp
+    case _shp_scheme shp of
+      Nothing -> runExceptT $
+        tryChainwebInfo le Https hp <|>
+        tryChainwebInfo le Http hp
+        -- The pact -s server doesn't have a P2P API, so no sense in trying.
+      Just s -> runExceptT $ tryChainwebInfo le s hp
+
+tryChainwebInfo
+  :: LogEnv
+  -> Scheme
+  -> HostPort
+  -> ExceptT String IO Node
+tryChainwebInfo le s hp = do
+  logLE le DebugS $ fromStr $ printf "tryChainwebInfo %s %s" (show s) (hostPortToText hp)
+  (mgr,ni) <- queryEndpoint le s hp "/info"
+  pure (Node s hp mgr ChainwebServer ni)
+
+tryPact
+  :: LogEnv
+  -> Scheme
+  -> HostPort
+  -> ExceptT String IO Node
+tryPact le s hp = do
+  logLE le DebugS $ fromStr $ printf "tryChainwebInfo %s %s" (show s) (hostPortToText hp)
+  (mgr,_ :: Value) <- queryEndpoint le s hp "/version"
+  pure (Node s hp mgr PactServer Nothing)
+
+queryEndpoint :: FromJSON a => LogEnv -> Scheme -> HostPort -> Text -> ExceptT String IO (Manager, a)
+queryEndpoint le s hp urlPath = do
+    (mgr, respBody) <- queryHostPort le s hp urlPath
+    case eitherDecode respBody of
+      Left e -> throwE $ unlines
+        [ "Error decoding NodeInfo: " <> e
+        , toS respBody
+        ]
+      Right a -> pure (mgr, a)
+
+queryHostPort :: LogEnv -> Scheme -> HostPort -> Text -> ExceptT String IO (Manager, LB.ByteString)
+queryHostPort le s hp urlPath = ExceptT $ do
+    mgr <- case s of
+      Http -> newManager defaultManagerSettings
+      Https -> newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
+    let shpText = schemeHostPortToText $ SchemeHostPort (Just s) hp
+        url = T.unpack $ shpText <> urlPath
+    logLE le DebugS $ logStr $ "Parsing url " <> url
+    req <- parseRequest url
+    logFLE le DebugS req "queryHostPort"
+    resp <- httpLbs req mgr
+    let status = responseStatus resp
+    return $ if statusIsSuccessful status
+      then Right $ (mgr, responseBody resp)
+      else Left $ printf "Got HTTP status %d from %s" (statusCode status) shpText
+
+chainwebApiRoot :: Scheme -> HostPort -> Text -> Text -> Text
+chainwebApiRoot s hp apiVer networkId =
+    prefix <>
+    "chainweb/" <>
+    apiVer <> "/" <>
+    networkId
   where
-    infoUrl = T.unpack $ hostPortToText h <> "/info"
-    --versionUrl = T.unpack $ hostPortToText h <> "/version"
+    hpText = schemeHostPortToText $ SchemeHostPort (Just s) hp
+    prefix = hpText <> "/"
 
 nodeApiRoot :: Node -> Text
 nodeApiRoot n =
@@ -94,8 +139,8 @@ nodeApiRoot n =
         _nodeInfo_chainwebVer ni
       _ -> error $ "Couldn't get node " <> T.unpack hpText <> " info"
   where
-    hpText = hostPortToText (_node_server n)
-    prefix = schemeText (_node_scheme n) <> hpText <> "/"
+    hpText = schemeHostPortToText $ SchemeHostPort (Just $ _node_scheme n) (_node_server n)
+    prefix = hpText <> "/"
 
 nodeChainRoot :: Node -> Text -> Text
 nodeChainRoot n c =
@@ -113,24 +158,30 @@ nodePactRoot n c =
         nodeChainRoot n c <>
         "/pact/api/v1"
 
-nodeGetCut :: Node -> IO (Response LB.ByteString)
-nodeGetCut n = do
+nodeGetCut :: LogEnv -> SchemeHostPort -> Text -> Text -> IO (Response LB.ByteString)
+nodeGetCut le shp apiVer networkId = do
+    mgr <- case _shp_scheme shp of
+      Just Http -> newManager defaultManagerSettings
+      -- Default to https for cuts if there was no explicit endpoint
+      _ -> newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
     req0 <- parseRequest url
     let req = req0
           { method = "GET"
 --          , requestBody = RequestBodyLBS bs
 --          , requestHeaders = [(hContentType, "application/json")]
           }
-    httpLbs req (_node_httpManager n)
+    logFLE le DebugS req "nodeGetCut"
+    httpLbs req mgr
   where
+    s = fromMaybe Https $ _shp_scheme shp
     url = T.unpack root <> "/cut"
-    root = nodeApiRoot n
+    root = chainwebApiRoot s (_shp_hostPort shp) apiVer networkId
 
 -- | This has to take a HostPort instead of a Node because you might want to
 -- query the mempool on nodes that don't expose the service API which has the
 -- /info endpoint that is needed to construct a 'Node'.
-mempoolPending :: HostPort -> Text -> ChainId -> IO (Response LB.ByteString)
-mempoolPending hp network c = do
+mempoolPending :: SchemeHostPort -> Text -> Text -> ChainId -> IO (Response LB.ByteString)
+mempoolPending shp apiVer network c = do
     req0 <- parseRequest url
     let req = req0
           { method = "POST"
@@ -139,7 +190,7 @@ mempoolPending hp network c = do
     mgr <- newTlsManagerWith (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
     httpLbs req mgr
   where
-    url = printf "https://%s/chainweb/0.0/%s/chain/%d/mempool/getPending" (hostPortToText hp) network (unChainId c)
+    url = printf "%s/chainweb/%s/%s/chain/%d/mempool/getPending" (schemeHostPortToText shp) apiVer network (unChainId c)
 
 pollNode :: LogEnv -> Node -> Text -> NE.NonEmpty Hash -> IO (Response LB.ByteString)
 pollNode le n cid rks = do

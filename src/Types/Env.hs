@@ -49,7 +49,7 @@ import           Utils
 ------------------------------------------------------------------------------
 
 data ConfigData = ConfigData
-  { _configData_networks :: Maybe (Map Text HostPort)
+  { _configData_networks :: Maybe (Map Text SchemeHostPort)
   , _configData_txRepos :: Maybe [Text]
   } deriving (Eq,Ord,Show,Read)
 
@@ -61,12 +61,12 @@ instance FromJSON ConfigData where
     <$> v .: "networks"
     <*> v .:? "tx-repos"
 
-lookupConfiguredNetwork :: Env -> Text -> Either String HostPort
+lookupConfiguredNetwork :: Env -> Text -> Either String SchemeHostPort
 lookupConfiguredNetwork e net = do
   m <- note "No networks configured" $ _configData_networks $ _env_configData e
   note ("\"" <> T.unpack net <> "\" network does not exist") $ M.lookup net m
 
-groupByNetwork :: Env -> [Transaction] -> Either String [(HostPort, [Transaction])]
+groupByNetwork :: Env -> [Transaction] -> Either String [(SchemeHostPort, [Transaction])]
 groupByNetwork e allTxs = do
     hps <- case partitionEithers ehps of
       ([], hps)  -> Right hps
@@ -86,10 +86,10 @@ handleOptionalNode
   :: Monad m
   => Env
   -> [Transaction]
-  -> Maybe HostPort
-  -> ExceptT String m [(HostPort, [Transaction])]
+  -> Maybe SchemeHostPort
+  -> ExceptT String m [(SchemeHostPort, [Transaction])]
 handleOptionalNode e allTxs Nothing = hoistEither $ groupByNetwork e allTxs
-handleOptionalNode _ allTxs (Just hp) = pure [(hp, allTxs)]
+handleOptionalNode _ allTxs (Just shp) = pure [(shp, allTxs)]
 
 data Env = Env
   { _env_httpManager :: Manager
@@ -285,7 +285,7 @@ walletSignP = WalletSignArgs <$> many txFileP <*> walletMethodP
 
 data NodeTxCmdArgs = NodeTxCmdArgs
   { _nodeTxCmdArgs_files :: [FilePath]
-  , _nodeTxCmdArgs_node :: Maybe HostPort
+  , _nodeTxCmdArgs_node :: Maybe SchemeHostPort
   } deriving (Eq,Ord,Show,Read)
 
 data LocalCmdArgs = LocalCmdArgs
@@ -301,14 +301,28 @@ nodeOptP = option (eitherReader (hostPortFromText . T.pack)) $ mconcat
   , help "Node hostname and optional port separated by a ':'"
   ]
 
-nodeArgP :: Parser HostPort
-nodeArgP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
+hostPortP :: Parser HostPort
+hostPortP = argument (eitherReader (hostPortFromText . T.pack)) $ mconcat
   [ metavar "NODE"
   , help "Node hostname and optional port separated by a ':'"
   ]
 
+schemeHostPortArgP :: Parser SchemeHostPort
+schemeHostPortArgP = argument (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
+  [ metavar "NODE_URL"
+  , help "Node hostname and optional port separated by a ':' (with optional scheme i.e. \"http://\")"
+  ]
+
+schemeHostPortOptP :: Parser SchemeHostPort
+schemeHostPortOptP = option (eitherReader (schemeHostPortFromText . T.pack)) $ mconcat
+  [ long "node"
+  , short 'n'
+  , metavar "NODE_URL"
+  , help "Node hostname and optional port separated by a ':' (with optional scheme i.e. \"http://\")"
+  ]
+
 nodeTxCmdP :: Parser NodeTxCmdArgs
-nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional nodeOptP
+nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional schemeHostPortOptP
 
 localCmdP :: Parser LocalCmdArgs
 localCmdP = LocalCmdArgs <$> nodeTxCmdP <*> noVerifySigsP
@@ -426,12 +440,12 @@ oldP = flag False True $ mconcat
 
 data SubCommand
   = CombineSigs [FilePath]
-  | Cut HostPort
+  | Cut SchemeHostPort (Maybe Text) (Maybe Text)
   | GenTx GenTxArgs
   | Keygen KeyType
   | ListKeys (Either FilePath ChainweaverFile) (Maybe KeyIndex)
   | Local LocalCmdArgs
-  | Mempool HostPort Text ChainId
+  | Mempool SchemeHostPort ChainId (Maybe Text) (Maybe Text)
   | Poll NodeTxCmdArgs
   | Send NodeTxCmdArgs
   | Sign SignArgs
@@ -536,6 +550,12 @@ signingCommands = mconcat
   , hidden
   ]
 
+apiVerP :: Parser Text
+apiVerP = strArgument $ mconcat
+  [ metavar "API_VER"
+  , help "The chainweb API version (defaults to 0.0)"
+  ]
+
 networkP :: Parser Text
 networkP = strArgument $ mconcat
   [ metavar "NETWORK"
@@ -551,9 +571,9 @@ nodeCommands = mconcat
       (progDesc "Poll command results with a node's /poll endpoint"))
   , command "send" (info (Send <$> nodeTxCmdP)
       (progDesc "Send commands to a node's /send endpoint"))
-  , command "cut" (info (Cut <$> nodeArgP)
+  , command "cut" (info (Cut <$> schemeHostPortArgP <*> optional apiVerP <*> optional networkP)
       (progDesc "Query a node's /cut endpoint"))
-  , command "mempool" (info (Mempool <$> nodeArgP <*> networkP <*> chainP)
+  , command "mempool" (info (Mempool <$> schemeHostPortArgP <*> chainP <*> optional apiVerP <*> optional networkP)
       (progDesc "Get mempool pending transactions"))
   , commandGroup "Node Interaction Commands"
   , hidden

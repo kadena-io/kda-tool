@@ -36,15 +36,15 @@ localCommand e (LocalCmdArgs args verifySigs) = do
       bss <- mapM LB.readFile fs
       res <- runExceptT $ do
         allTxs <- hoistEither $ first unlines $ parseAsJsonOrYaml verifySigs bss
-        hpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
-        forM hpPairs $ \(hp, txs) -> do
-          n <- ExceptT $ getNode le hp
+        shpPairs <- handleOptionalNode e allTxs $ _nodeTxCmdArgs_node args
+        forM shpPairs $ \(shp, txs) -> do
+          n <- ExceptT $ getNodeServiceApi le shp
           let groups = NE.groupBy ((==) `on` txChain) $ sortBy (comparing txChain) txs
           logEnv e DebugS $ fromStr $
             printf "%s: testing %d commands on %d chains\n"
-              (hostPortToText hp) (length txs) (length groups)
+              (schemeHostPortToText shp) (length txs) (length groups)
           responses <- lift $ mapM (localNodeQuery le verifySigs n) txs
-          pure $ hostPortToText hp .= map responseToValue responses
+          pure $ schemeHostPortToText shp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
         Right results -> putStrLn $ toS $ encode $ Object $ mconcat results

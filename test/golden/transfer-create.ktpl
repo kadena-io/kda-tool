@@ -1,0 +1,21 @@
+code: |-
+  (coin.transfer-create "{{{from-acct}}}" "{{{to-acct}}}" (read-keyset "ks") {{amount}})
+data:
+  ks:
+    pred: "keys-all"
+    keys: {{{to-keys}}}
+publicMeta:
+  chainId: "{{chain}}"
+  sender: {{{from-acct}}}
+  gasLimit: 2300
+  gasPrice: 0.000001
+  ttl: 600
+networkId: {{network}}
+signers:
+  - public: {{from-key}}
+    caps:
+      - name: "coin.TRANSFER"
+        args: [{{{from-acct}}}, {{{to-acct}}}, {{amount}}]
+      - name: "coin.GAS"
+        args: []
+type: exec

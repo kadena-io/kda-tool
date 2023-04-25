@@ -177,7 +177,17 @@ test-suite kda-tool-tests
     , zlib
 
     , hspec
+    , hspec-golden
 
   other-modules:
+    Commands.GenTx
     HostPortSpec
+    Keys
     TemplateSpec
+    TxTemplate
+    Types.Encoding
+    Types.Env
+    Types.HostPort
+    Types.KeyType
+    Types.TxInputs
+    Utils

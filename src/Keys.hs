@@ -140,9 +140,10 @@ instance FromJSON KeyPairYaml where
     pure $ KeyPairYaml pubText secText
 
 readKadenaKey :: Handle -> IO (Either String KadenaKey)
-readKadenaKey h = withoutInputEcho $ do
-  !t <- T.strip <$> T.hGetContents h
+readKadenaKey h = do
+  !rawStr <- withoutInputEcho $ T.hGetChunk h
   hClose h
+  let t = T.strip rawStr
   case YA.decode1Strict $ T.encodeUtf8 t of
     Right (String s) -> runExceptT $
       ExceptT (decodeMnemonic t) <|> ExceptT (decodeEncryptedMnemonic s)

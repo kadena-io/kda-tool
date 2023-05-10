@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Commands.Local
   ( localCommand
@@ -6,9 +7,11 @@ module Commands.Local
 
 ------------------------------------------------------------------------------
 import           Control.Error
+import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Control.Monad.Trans
 import           Data.Aeson
+import           Data.Aeson.Lens
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
 import           Data.Function
@@ -27,7 +30,7 @@ import           Utils
 ------------------------------------------------------------------------------
 
 localCommand :: Env -> LocalCmdArgs -> IO ()
-localCommand e (LocalCmdArgs args verifySigs) = do
+localCommand e (LocalCmdArgs args verifySigs shortOutput) = do
   let le = _env_logEnv e
   case _nodeTxCmdArgs_files args of
     [] -> putStrLn "No tx files specified"
@@ -47,4 +50,11 @@ localCommand e (LocalCmdArgs args verifySigs) = do
           pure $ schemeHostPortToText shp .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
-        Right results -> putStrLn $ toS $ encode $ Object $ mconcat results
+        Right results -> do
+          let out = Object $ mconcat results
+          let status = out ^.. _Object . traverse . _Array . traverse . key "body" . key "result" . key "status" . _String
+          if shortOutput
+            then putStrLn $ toS $ encode status
+            else putStrLn $ toS $ encode out
+          when (any (/="success") status) $
+            exitWith (ExitFailure 2)

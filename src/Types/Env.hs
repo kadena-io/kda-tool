@@ -289,8 +289,9 @@ data NodeTxCmdArgs = NodeTxCmdArgs
   } deriving (Eq,Ord,Show,Read)
 
 data LocalCmdArgs = LocalCmdArgs
-  { _nodeTxCmdArgs_txArgs :: NodeTxCmdArgs
-  , _nodeTxCmdArgs_sigVerification :: Bool
+  { _localTxCmdArgs_txArgs :: NodeTxCmdArgs
+  , _localTxCmdArgs_sigVerification :: Bool
+  , _localTxCmdArgs_shortOutput :: Bool
   } deriving (Eq,Ord,Show,Read)
 
 nodeOptP :: Parser HostPort
@@ -325,12 +326,19 @@ nodeTxCmdP :: Parser NodeTxCmdArgs
 nodeTxCmdP = NodeTxCmdArgs <$> many txFileP <*> optional schemeHostPortOptP
 
 localCmdP :: Parser LocalCmdArgs
-localCmdP = LocalCmdArgs <$> nodeTxCmdP <*> noVerifySigsP
+localCmdP = LocalCmdArgs <$> nodeTxCmdP <*> noVerifySigsP <*> shortOutputP
 
 noVerifySigsP :: Parser Bool
 noVerifySigsP = flag True False $ mconcat
   [ long "no-verify-sigs"
   , help "Don't verify signatures (useful for testing txs before signing)"
+  ]
+
+shortOutputP :: Parser Bool
+shortOutputP = flag False True $ mconcat
+  [ short 's'
+  , long "short"
+  , help "Shortened output that only shows the status"
   ]
 
 data Holes = Holes

@@ -56,6 +56,5 @@ localCommand e (LocalCmdArgs args verifySigs shortOutput) = do
           if shortOutput
             then putStrLn $ toS $ encode status
             else putStrLn $ toS $ encode out
-          if all (=="success") status
-            then pure ()
-            else exitWith (ExitFailure 2)
+          when (any (/="success") status) $
+            exitWith (ExitFailure 2)

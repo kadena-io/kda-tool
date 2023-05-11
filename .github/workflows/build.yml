@@ -34,8 +34,6 @@ jobs:
       if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
       run: |
         cat > cabal.project.local <<EOF
-        allow-newer: chainweb-api:*
-        allow-newer: kadena-signing-api:*
         allow-newer: *:base
         EOF
 

@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4', '8.10.7'] # '9.0.2' broken
+        ghc: ['8.8.4', '8.10.7', '9.0.2']
         cabal: ['3.8']
         os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
@@ -34,8 +34,6 @@ jobs:
       if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
       run: |
         cat > cabal.project.local <<EOF
-        allow-newer: chainweb-api:*
-        allow-newer: kadena-signing-api:*
         allow-newer: *:base
         EOF
 

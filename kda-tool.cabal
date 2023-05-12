@@ -43,7 +43,7 @@ library
       Decimal
     , HsYAML
     , HsYAML-aeson
-    , aeson
+    , aeson < 2
     , async
     , attoparsec
     , base >= 4.13 && < 5

@@ -63,7 +63,7 @@ appMain = do
     let theEnv = Env mgr le cd rand
     case c of
       Cut hp ma mn -> cutCommand theEnv hp ma mn
-      CombineSigs files -> combineSigsCommand theEnv files
+      CombineSigs files legacy -> combineSigsCommand theEnv files legacy
       GenTx args -> genTxCommand theEnv args
       Keygen keyType -> keygenCommand keyType
       ListKeys kf ind -> listKeysCommand kf ind
@@ -86,4 +86,3 @@ appMain = do
       , ""
       , "source <(kda --bash-completion-script `which kda`)"
       ]
-

@@ -8,9 +8,7 @@ module Commands.Sign
 ------------------------------------------------------------------------------
 import qualified Cardano.Crypto.Wallet as Crypto
 import           Control.Error
-import qualified Crypto.Hash as Crypto
 import           Control.Monad.Except
-import           Data.ByteString (ByteString)
 import qualified Data.ByteArray as BA
 import           Data.List
 import           Data.Set (Set)
@@ -18,7 +16,6 @@ import qualified Data.Set as S
 import           Data.Text (Text)
 import qualified Data.Text.IO as T
 import           Data.Text.Encoding
-import qualified Data.YAML.Aeson as YA
 import           Kadena.SigningTypes
 import           Pact.Types.Command
 import           Pact.Types.SigData
@@ -77,8 +74,8 @@ signYamlFile kkey mindex enc msgFile = do
   mh <- openFile msgFile ReadWriteMode
   rawbs <- readAsEncoding enc mh
   hClose mh
-  case YA.decode1Strict rawbs of
-    Left _ -> die $ printf "Error: %s file contents does not match its extension." msgFile
+  case decodeCmdYaml rawbs of
+    Left e -> die $ printf "%s: %s" msgFile e
     Right csd -> do
       let sigs = _csd_sigs csd
           cmd = _csd_cmd csd
@@ -93,7 +90,7 @@ signYamlFile kkey mindex enc msgFile = do
               hClose mh
               let newSigs = addSig pubHex sig sigs
               let csd2 = CommandSigData newSigs cmd
-              fp <- saveCommandSigData (dropExtension msgFile) csd2
+              fp <- saveCommandSigData (dropExtension msgFile) csd2 False
               pure $ Just (fp, countSigs csd2 - countSigs csd)
             else pure Nothing
 
@@ -117,12 +114,9 @@ tryHdIndex msgFile csd xprv mpass mind = do
       num2 = countSigs csd2
   if num2 > num1
     then do
-      fp <- saveCommandSigData (dropExtension msgFile) csd2
+      fp <- saveCommandSigData (dropExtension msgFile) csd2 False
       pure $ Just (fp, countSigs csd2 - countSigs csd)
     else pure Nothing
-
-calcHash :: ByteString -> ByteString
-calcHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
 
 getSigningInds
   :: Set PublicKeyHex

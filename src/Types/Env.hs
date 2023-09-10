@@ -447,7 +447,7 @@ oldP = flag False True $ mconcat
   ]
 
 data SubCommand
-  = CombineSigs [FilePath]
+  = CombineSigs [FilePath] Bool
   | Cut SchemeHostPort (Maybe Text) (Maybe Text)
   | GenTx GenTxArgs
   | Keygen KeyType
@@ -546,7 +546,7 @@ templateCommands = mconcat
 
 signingCommands :: Mod CommandFields SubCommand
 signingCommands = mconcat
-  [ command "combine-sigs" (info (CombineSigs <$> many txFileP)
+  [ command "combine-sigs" (info (CombineSigs <$> many txFileP <*> legacyOutputP)
       (progDesc "Combine signatures from multiple files"))
   , command "sign" (info (Sign <$> signP)
       (progDesc "Sign transactions"))
@@ -557,6 +557,11 @@ signingCommands = mconcat
   , commandGroup "Transaction Signing Commands"
   , hidden
   ]
+
+legacyOutputP :: Parser Bool
+legacyOutputP = switch $ mconcat
+  [ short 'l'
+  , help "Output legacy YAML format" ]
 
 apiVerP :: Parser Text
 apiVerP = strArgument $ mconcat

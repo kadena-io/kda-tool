@@ -95,7 +95,7 @@ signYamlFiles env args = do
                     case _csdr_outcome csdr of
                       SO_Success _ -> do
                         let c2 = _csdr_csd csdr
-                        f2 <- saveCommandSigData (dropExtension f) c2
+                        f2 <- saveCommandSigData (dropExtension f) c2 False
                         pure (f2, countSigs c2 - countSigs c1)
                       SO_Failure msg -> do
                         T.putStrLn $ "Got signing failure: " <> msg

@@ -13,11 +13,13 @@ import           Chainweb.Api.Transaction
 import           Control.Error
 import           Control.Exception
 import           Control.Monad
+import qualified Crypto.Hash as Crypto
 import           Data.Aeson
 import qualified Data.Aeson as A
 import           Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Char8 as A (endOfInput, parseOnly, scientific)
 import           Data.Bifunctor
+import qualified Data.ByteArray as BA
 import           Data.Char
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
@@ -39,6 +41,8 @@ import           Kadena.SigningTypes
 import           GHC.Generics
 import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
+import           Pact.Types.Hash (hash)
+import           Pact.Types.SigData
 import           System.Directory
 import           System.FilePath
 ------------------------------------------------------------------------------
@@ -186,20 +190,43 @@ saveCommandSigData
   -- ^ The filename without the extension (.yaml or .json gets added on
   -- depending on whether the command is fully signed)
   -> CommandSigData
+  -> Bool
   -> IO FilePath
-saveCommandSigData fname csd = do
+saveCommandSigData fname csd legacy = do
   case filter (isNothing . _s_userSig) $ unSignatureList $ _csd_sigs csd of
     [] -> do
       case commandSigDataToCommand csd of
-        Left _ -> writeYaml fname csd
+        Left _ -> writeYaml fname csd legacy
         Right c -> writeJson fname c
-    _ -> writeYaml fname csd
+    _ -> writeYaml fname csd legacy
 
-writeYaml :: FilePath -> CommandSigData -> IO FilePath
-writeYaml fname csd = do
+writeYaml :: FilePath -> CommandSigData -> Bool -> IO FilePath
+writeYaml fname csd legacy = do
   let fp = fname <> ".yaml"
-  LB.writeFile fp $ niceQuoteEncodeYaml csd
+  LB.writeFile fp $ case legacy of
+    False -> niceQuoteEncodeYaml csd
+    True -> niceQuoteEncodeYaml (toLegacySD csd)
   pure fp
+  where
+    toLegacySD (CommandSigData (SignatureList sigs) cmd) =
+      SigData (hashCmd cmd) (map toLegacy sigs) (Just cmd)
+    hashCmd cmd = hash $ calcHash $ T.encodeUtf8 cmd
+    toLegacy (CSDSigner k s) = (k,s)
+
+
+calcHash :: B.ByteString -> B.ByteString
+calcHash = BA.convert . Crypto.hashWith Crypto.Blake2b_256
+
+decodeCmdYaml :: B.ByteString -> Either String CommandSigData
+decodeCmdYaml bs = case YA.decode1Strict bs of
+  Right r -> pure r
+  Left _ -> case YA.decode1Strict bs of
+    Right (SigData _h ss cm) -> case cm of
+      Nothing -> Left "Legacy formats must include command"
+      Just c -> Right $ CommandSigData (SignatureList (map conv ss)) c
+    Left _ -> Left "Failed reading YAML file"
+  where
+    conv (k,s) = CSDSigner k s
 
 writeJson :: FilePath -> Command Text -> IO FilePath
 writeJson fname c = do

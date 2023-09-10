@@ -26,8 +26,22 @@
         # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
         # crossPlatforms = p: [p.ghcjs];
       };
+      # This package depends on other packages at buildtime, but its output does not
+      # depend on them. This way, we don't have to download the entire closure to verify
+      # that those packages build.
+      mkCheck = name: package: pkgs.runCommand ("check-"+name) {} ''
+        echo ${name}: ${package}
+        echo works > $out
+      '';
     in flake // {
       # Built by `nix build .`
-      packages.default = flake.packages."kda-tool:exe:kda";
+      packages = rec {
+        default = flake.packages."kda-tool:exe:kda";
+        check = pkgs.runCommand "check" {} ''
+          echo ${default}
+          echo ${mkCheck "devShell" flake.devShell}
+          echo works > $out
+        '';
+      };
     });
 }

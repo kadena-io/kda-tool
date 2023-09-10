@@ -14,8 +14,6 @@
               compiler-nix-name = "ghc8107";
               shell.tools = {
                 cabal = {};
-                hlint = {};
-                haskell-language-server = {};
               };
               shell.buildInputs = with pkgs; [
                 nixpkgs-fmt

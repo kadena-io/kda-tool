@@ -9,7 +9,7 @@
       overlays = [ haskellNix.overlay
         (final: prev: {
           # This overlay adds our project to pkgs
-          helloProject =
+          kdaToolProject =
             final.haskell-nix.project' {
               src = ./.;
               compiler-nix-name = "ghc8107";
@@ -23,7 +23,7 @@
         })
       ];
       pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
-      flake = pkgs.helloProject.flake {
+      flake = pkgs.kdaToolProject.flake {
         # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
         # crossPlatforms = p: [p.ghcjs];
       };

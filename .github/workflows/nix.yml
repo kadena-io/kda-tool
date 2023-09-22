@@ -40,3 +40,11 @@ jobs:
       run: |
         echo Building the project
         nix build .#check --log-lines 500 --show-trace
+
+    - name: Build release bundle
+      run: nix build .#bundled
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: kdatool-${{ matrix.os }}-bundle
+        path: result

@@ -34,11 +34,16 @@
         echo ${name}: ${package}
         echo works > $out
       '';
+      default = flake.packages."kda-tool:exe:kda";
+      bundled = (pkgs.callPackage inputs.nix-exe-bundle {} default).overrideAttrs
+        (_: {inherit (default) version;});
     in flake // {
       # Built by `nix build .`
       packages = rec {
-        default = flake.packages."kda-tool:exe:kda";
-        bundled = pkgs.callPackage inputs.nix-exe-bundle {} default;
+        inherit default bundled;
+        recursive = with hs-nix-infra.lib.recursive system;
+          wrapRecursiveWithMeta "kda" "${wrapFlake self}.default";
+
         check = pkgs.runCommand "check" {} ''
           echo ${default}
           echo ${mkCheck "devShell" flake.devShell}

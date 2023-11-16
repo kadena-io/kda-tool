@@ -36,8 +36,11 @@
         echo works > $out
       '';
       default = flake.packages."kda-tool:exe:kda";
-      bundled = (pkgs.callPackage inputs.nix-exe-bundle {} default).overrideAttrs
-        (_: {inherit (default) version;});
+      bundled = (pkgs.callPackage inputs.nix-exe-bundle {} default).overrideAttrs (_: {
+        inherit (default) version;
+        passthru.recursive = with hs-nix-infra.lib.recursive system;
+          wrapRecursiveWithMeta "kda" "${wrapFlake self}.packages.${system}.bundled";
+      });
     in {
       # Built by `nix build .`
       packages = rec {

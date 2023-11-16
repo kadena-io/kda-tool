@@ -23,7 +23,8 @@
         })
       ];
       pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
-      flake = pkgs.kdaToolProject.flake {
+      project = pkgs.kdaToolProject;
+      flake = project.flake {
         # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
         # crossPlatforms = p: [p.ghcjs];
       };
@@ -37,7 +38,7 @@
       default = flake.packages."kda-tool:exe:kda";
       bundled = (pkgs.callPackage inputs.nix-exe-bundle {} default).overrideAttrs
         (_: {inherit (default) version;});
-    in flake // {
+    in {
       # Built by `nix build .`
       packages = rec {
         inherit default bundled;
@@ -50,5 +51,11 @@
           echo works > $out
         '';
       };
+
+      inherit (flake) devShell;
+
+      # Other flake outputs provided by haskellNix can be accessed through
+      # this project output
+      inherit project;
     });
 }

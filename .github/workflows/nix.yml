@@ -42,5 +42,6 @@ jobs:
         echo Building the project
         nix build .#check --log-lines 500 --show-trace
 
-        echo Build the recursive output
+        echo Build the recursive outputs
         nix build .#recursive.allDerivations --log-lines 500 --show-trace
+        nix build .#bundled.recursive.allDerivations --log-lines 500 --show-trace

@@ -1,11 +1,11 @@
 {
-  inputs.haskellNix.url = "github:input-output-hk/haskell.nix";
-  inputs.nixpkgs.follows = "haskellNix/nixpkgs-unstable";
+  inputs.hs-nix-infra.url = "github:kadena-io/hs-nix-infra";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.nix-exe-bundle = { url = "github:3noch/nix-bundle-exe"; flake = false; };
-  outputs = inputs@{ self, nixpkgs, flake-utils, haskellNix, ...}:
+  outputs = inputs@{ self, flake-utils, hs-nix-infra, ...}:
     flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ] (system:
     let
+      inherit (hs-nix-infra) haskellNix nixpkgs;
       overlays = [ haskellNix.overlay
         (final: prev: {
           # This overlay adds our project to pkgs

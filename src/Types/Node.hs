@@ -234,7 +234,7 @@ localNodeQuery le sigVerification n t = do
     httpLbs req (_node_httpManager n)
   where
     url = T.unpack root <> addQS "/local"
-    addQS p = if sigVerification then p else p <> "?signatureVerification=false"
+    addQS p = if sigVerification then p else p <> "?signatureVerification=false&preflight=true"
     root = nodePactRoot n $ _chainwebMeta_chainId $ _pactCommand_meta $ _transaction_cmd t
 
 responseToValue :: Response LB.ByteString -> Value

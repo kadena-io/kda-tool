@@ -41,6 +41,7 @@ import           Options.Applicative hiding (Parser)
 import           Pact.Types.Command
 import           System.Directory
 import           System.FilePath
+import Data.Vector.Internal.Check (HasCallStack)
 ------------------------------------------------------------------------------
 
 tshow :: Show a => a -> Text
@@ -144,15 +145,23 @@ commandSigDataToTransaction requireSigs csd = do
     pure $ mkTransaction pc (map userSigToSig sigs)
   where
     addDummy = maybe (if requireSigs then Nothing else Just dummySig) Just
-    dummySig = UserSig "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    dummySig = ED25519Sig "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+convertViaJson :: (ToJSON a, FromJSON b) => a -> Either String b
+convertViaJson = eitherDecode . encode
+
+convertViaJson' :: HasCallStack => (ToJSON a, FromJSON b) => a -> b
+convertViaJson' a = case convertViaJson a of
+  Left e -> error $ "Failed to convert via JSON:" ++ e
+  Right b -> b
 
 -- | Converts chainweb-api's 'Sig' type to Pact's 'UserSig'.
 userSigToSig :: UserSig -> Sig
-userSigToSig = Sig . _usSig
+userSigToSig = convertViaJson'
 
 -- | Converts Pact's 'UserSig' type to chainweb-api's 'Sig'.
 sigToUserSig :: Sig -> UserSig
-sigToUserSig = UserSig . unSig
+sigToUserSig = convertViaJson'
 
 --data SigData a = SigData
 --  { _sigDataHash :: PactHash

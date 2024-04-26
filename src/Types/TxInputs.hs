@@ -6,6 +6,7 @@ module Types.TxInputs where
 import           Control.Applicative
 import           Control.Error
 import           Data.Aeson as A
+import           Data.Aeson.Key as A
 import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy as LB
 import           Data.Text (Text)
@@ -13,8 +14,12 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import           Pact.ApiReq
+import           Kadena.SigningTypes ()
+import qualified Pact.JSON.Encode as J
+import           Pact.JSON.Legacy.Value
 import           Pact.Types.Lang
 import           Pact.Types.RPC
+import           Pact.Types.Verifier
 ------------------------------------------------------------------------------
 
 data PactTxType = PttExec | PttCont
@@ -39,7 +44,7 @@ data ExecInputs = ExecInputs
   , _execInputs_dataOrFile :: Either Value FilePath
   } deriving (Eq,Show)
 
-execInputsPairs :: (Monoid a, KeyValue a) => ExecInputs -> a
+execInputsPairs :: (Monoid a, KeyValue e a) => ExecInputs -> a
 execInputsPairs ei = mconcat
   [ either ("code" .=) ("codeFile" .=) $ _execInputs_codeOrFile ei
   , either ("data" .=) ("dataFile" .=) $ _execInputs_dataOrFile ei
@@ -59,6 +64,7 @@ data TxInputs = TxInputs
   { _txInputs_type :: PactTxType
   , _txInputs_payload :: Either ContMsg ExecInputs
   , _txInputs_signers :: Maybe [ApiSigner]
+  , _txInputs_verifiers :: Maybe [Verifier ParsedVerifierProof]
   , _txInputs_nonce :: Maybe Text
   , _txInputs_meta :: ApiPublicMeta
   , _txInputs_networkId :: NetworkId
@@ -74,13 +80,14 @@ txInputsToApiReq txi = do
       (let PactId pid = _cmPactId c in hush $ fromText' pid)
       (Just $ _cmStep c)
       (Just $ _cmRollback c)
-      (Just $ _cmData c)
+      (Just $ _getLegacyValue $ _cmData c)
       (_cmProof c)
       Nothing
       Nothing
       Nothing
       Nothing
       (Just $ fromMaybe [] $ _txInputs_signers txi)
+      (Just $ fromMaybe [] $ _txInputs_verifiers txi)
       (_txInputs_nonce txi)
       (Just $ _txInputs_meta txi)
       n
@@ -99,6 +106,7 @@ txInputsToApiReq txi = do
         Nothing
         Nothing
         (Just $ fromMaybe [] $ _txInputs_signers txi)
+        (Just $ fromMaybe [] $ _txInputs_verifiers txi)
         (_txInputs_nonce txi)
         (Just $ _txInputs_meta txi)
         n
@@ -113,7 +121,7 @@ instance ToJSON TxInputs where
   toJSON ti = A.Object $ payloadPairs <> mconcat
     [ "type" .= _txInputs_type ti
     , "signers" .= fromMaybe [] (_txInputs_signers ti)
-    , "nonce" .?= _txInputs_nonce ti
+    , "nonce" .??= _txInputs_nonce ti
 
     -- TODO Not sure if this should be "meta" or "publicMeta". I think it should
     -- be "meta" because we want to move people towards the key used in the
@@ -125,9 +133,13 @@ instance ToJSON TxInputs where
     ]
     where
       payloadPairs = either contMsgJsonPairs execInputsPairs $ _txInputs_payload ti
-      k .?= v = case v of
+      k .??= v = case v of
         Nothing -> mempty
         Just v' -> k .= v'
+      contMsgJsonPairs contMsg = case J.toJsonViaEncode contMsg of
+        A.Object o -> o
+        _ -> error "contMsgJsonPairs: impossible"
+
 
 
 instance FromJSON TxInputs where
@@ -154,6 +166,7 @@ instance FromJSON TxInputs where
           <$> pure t
           <*> pure p
           <*> o .:? "signers"
+          <*> o .:? "verifiers"
           <*> o .:? "nonce"
           <*> pure m
           <*> o .: "networkId"
@@ -161,7 +174,7 @@ instance FromJSON TxInputs where
 parseMaybePair
   :: FromJSON a
   => A.Object
-  -> Text
+  -> A.Key
   -> Parser (Maybe (Either a FilePath))
 parseMaybePair o name = do
   mn <- o .:? name
@@ -171,4 +184,4 @@ parseMaybePair o name = do
     (Nothing,Nothing) -> pure Nothing
     (Just n,Nothing) -> pure $ Just $ Left n
     (Nothing,Just f) -> pure $ Just $ Right f
-    (Just _,Just _) -> fail $ T.unpack ("Cannot have both " <> name <> " and " <> nameFile)
+    (Just _,Just _) -> fail $ T.unpack ("Cannot have both " <> A.toText name <> " and " <> A.toText nameFile)

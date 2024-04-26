@@ -15,15 +15,16 @@ import           Pact.Types.Crypto
 import           Keys
 import           Types.KeyType
 import           Utils
+import Data.Base16.Types (extractBase16)
 ------------------------------------------------------------------------------
 
 keygenCommand :: KeyType -> IO ()
 keygenCommand kt = do
   case kt of
     Plain -> do
-      kp <- genKeyPair defaultScheme
-      putStrLn $ "public: " ++ T.unpack (encodeBase16 $ getPublic kp)
-      putStrLn $ "secret: " ++ T.unpack (encodeBase16 $ getPrivate kp)
+      kp <- genKeyPair
+      putStrLn $ "public: " ++ T.unpack (extractBase16 $ encodeBase16 $ getPublic kp)
+      putStrLn $ "secret: " ++ T.unpack (extractBase16 $ encodeBase16 $ getPrivate kp)
     HD -> do
       let toPhrase = T.unwords . M.elems . mkPhraseMapFromMnemonic
       let prettyErr err = "ERROR generating menmonic: " <> tshow err

@@ -5,13 +5,11 @@
 
 module Kadena.SigningApi where
 
-import Control.Lens hiding ((.=))
 import Control.Applicative((<|>))
 import Data.Aeson
 import Data.Proxy
 import Data.Text (Text)
 import GHC.Generics
-import Pact.Server.API
 import Pact.Types.Capability (SigCapability(..))
 import Pact.Types.ChainMeta (TTLSeconds(..))
 import Pact.Types.Runtime (GasLimit(..), ChainId, PublicKeyText)
@@ -104,4 +102,3 @@ type V1SigningApi = "sign" :> ReqBody '[JSON] SigningRequest :> Post '[JSON] Sig
 
 signingAPI :: Proxy SigningApi
 signingAPI = Proxy
-

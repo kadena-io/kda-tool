@@ -1,5 +1,8 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -10,21 +13,24 @@ import Control.Lens hiding ((.=))
 import Control.Monad
 import qualified Data.Aeson as A
 import Data.Aeson.Types
+import qualified Data.ByteString.Lazy as BSL
 import Data.Char as Char
-import qualified Data.HashMap.Strict as HM
 import qualified Data.List.Split as L
 import qualified Data.Map as M
 import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Vector as V
 import GHC.Generics
 
+import Pact.ApiReq
+import qualified Pact.JSON.Encode as J
+import Pact.Types.Capability (SigCapability(..))
 import Pact.Types.ChainMeta
 import Pact.Types.Command
 import Pact.Types.Hash
 import Pact.Parse
+import Pact.Types.Runtime (GasLimit(..), ChainId, NetworkId, PublicKeyText)
 -- TODO: Rip out sig data dependency
 import Pact.Types.SigData (PublicKeyHex(..))
 
@@ -37,14 +43,18 @@ data CSDSigner = CSDSigner
 instance ToJSON CSDSigner where
   toJSON (CSDSigner (PublicKeyHex pkh) mSig) = object $
     [ "pubKey" .= pkh
-    , "sig" .= (_usSig <$> mSig)
+    , "sig" .= sig
     ]
+    where sig = mSig <&> \case
+            ED25519Sig s -> s
+            WebAuthnSig s -> T.decodeUtf8 $ BSL.toStrict $ J.encode s
 
 instance FromJSON CSDSigner where
-  parseJSON = withObject "Signer" $ \o -> do
+  parseJSON v = flip (withObject "Signer") v $ \o -> do
     pk <- o .: "pubKey"
-    mSig ::(Maybe Text) <- o.:? "sig"
-    pure $ CSDSigner pk $ UserSig <$> mSig
+    mSigTxt ::(Maybe Text) <- o.:? "sig"
+    mSig <- forM mSigTxt $ \sigTxt -> parseJSON $ object ["sig" .= sigTxt]
+    pure $ CSDSigner pk mSig
 
 --------------------------------------------------------------------------------
 newtype SignatureList =
@@ -85,7 +95,8 @@ data SigningOutcome =
 
 instance ToJSON SigningOutcome where
   toJSON a = case a of
-    SO_Success h -> object ["result" .= ("success" :: Text), "hash" .= h ]
+    SO_Success h -> object ["result" .= ("success" :: Text), "hash" .= hashTxt ]
+      where hashTxt = hashToText $ toUntypedHash h
     SO_Failure msg -> object ["result" .= ("failure" :: Text), "msg" .= msg ]
     SO_NoSig -> object ["result" .= ("noSig" :: Text)]
 
@@ -96,7 +107,7 @@ instance FromJSON SigningOutcome where
       "success" -> SO_Success <$> o .: "hash"
       "failure" -> SO_Failure <$> o .: "msg"
       "noSig" -> pure SO_NoSig
-      otherwise -> fail "ill-formed SigningOutcome"
+      _ -> fail "ill-formed SigningOutcome"
 
 data CSDResponse = CSDResponse
   { _csdr_csd :: CommandSigData
@@ -136,7 +147,7 @@ instance FromJSON QuicksignError where
       "reject" -> pure QuicksignError_Reject
       "emptyList" -> pure QuicksignError_EmptyList
       "other" -> fmap QuicksignError_Other $ o .: "msg"
-      otherwise -> fail "ill-formed QuicksignError"
+      _ -> fail "ill-formed QuicksignError"
 
 --------------------------------------------------------------------------------
 commandSigDataToCommand :: CommandSigData -> Either String (Command Text)
@@ -199,3 +210,19 @@ compactEncoding = defaultOptions
   where
     -- As long as names are not empty or just underscores this head should be fine:
     shortener = head . reverse . filter (/= "") . L.splitOn "_"
+
+------------------- ORPHANS -------------------
+-- We're defining these orphans here because Pact moved away from `ToJSON` to
+-- pact-json's Encode typeclass, which is equivalent to aeson's `ToJSON` typeclass.
+-- If these orphans conflict with future ToJSON instances, we can remove them.
+
+instance ToJSON SigCapability where toJSON = J.toJsonViaEncode
+instance ToJSON PublicKeyText where toJSON = J.toJsonViaEncode
+instance ToJSON TTLSeconds where toJSON = J.toJsonViaEncode
+instance ToJSON GasLimit where toJSON = J.toJsonViaEncode
+instance ToJSON ChainId where toJSON = J.toJsonViaEncode
+instance ToJSON NetworkId where toJSON = J.toJsonViaEncode
+instance J.Encode a => ToJSON (Command a) where toJSON = J.toJsonViaEncode
+instance ToJSON ApiSigner where toJSON = J.toJsonViaEncode
+instance ToJSON ApiPublicMeta where toJSON = J.toJsonViaEncode
+instance ToJSON UserSig where toJSON = J.toJsonViaEncode

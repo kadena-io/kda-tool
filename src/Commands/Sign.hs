@@ -10,6 +10,7 @@ import qualified Cardano.Crypto.Wallet as Crypto
 import           Control.Error
 import qualified Crypto.Hash as Crypto
 import           Control.Monad.Except
+import           Control.Monad.Trans
 import           Data.ByteString (ByteString)
 import qualified Data.ByteArray as BA
 import           Data.List
@@ -89,7 +90,7 @@ signYamlFile kkey mindex enc msgFile = do
           let pubHex = PublicKeyHex $ toB16 $ BA.convert pub
           if S.member pubHex signingKeys
             then do
-              let sig = UserSig $ toB16 $ BA.convert $ sign sec (calcHash $ encodeUtf8 cmd)
+              let sig = ED25519Sig $ toB16 $ BA.convert $ sign sec (calcHash $ encodeUtf8 cmd)
               hClose mh
               let newSigs = addSig pubHex sig sigs
               let csd2 = CommandSigData newSigs cmd
@@ -110,7 +111,7 @@ tryHdIndex msgFile csd xprv mpass mind = do
       cmdBS = encodeUtf8 cmd
       signingKeys = S.fromList $ map _s_pubKey $ unSignatureList startingSigs
       signPairs = getSigningInds signingKeys xprv mpass (maybe [0..100] (:[]) mind)
-      f (esec, pub) = addSig pub (UserSig $ sigToText $ signHD esec (fromMaybe "" mpass) (calcHash cmdBS))
+      f (esec, pub) = addSig pub (ED25519Sig $ sigToText $ signHD esec (fromMaybe "" mpass) (calcHash cmdBS))
       newSigs = foldr f startingSigs signPairs
   let csd2 = CommandSigData newSigs cmd
       num1 = countSigs csd

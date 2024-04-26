@@ -12,7 +12,7 @@
           kdaToolProject =
             final.haskell-nix.project' {
               src = ./.;
-              compiler-nix-name = "ghc8107";
+              compiler-nix-name = "ghc964";
               shell.tools = {
                 cabal = {};
               };

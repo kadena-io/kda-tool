@@ -39,6 +39,7 @@ import           System.IO.Echo
 import           Text.Read (readMaybe)
 ------------------------------------------------------------------------------
 import           Utils
+import Data.Base16.Types (extractBase16)
 ------------------------------------------------------------------------------
 
 mnemonicToRoot :: MnemonicPhrase -> Crypto.XPrv
@@ -169,7 +170,7 @@ decodeMnemonic t = do
 
 decodeEncryptedMnemonic :: Text -> IO (Either String KadenaKey)
 decodeEncryptedMnemonic t = do
-  case Crypto.xprv =<< fmapL T.unpack (B16.decodeBase16 (T.encodeUtf8 t)) of
+  case Crypto.xprv =<< fmapL T.unpack (B16.decodeBase16Untyped (T.encodeUtf8 t)) of
     Left _ -> pure $ Left "Could not decode HD key"
     Right xprv -> do
       hSetBuffering stderr NoBuffering
@@ -232,10 +233,10 @@ textTo :: IsString a => Text -> a
 textTo = fromString . T.unpack
 
 toB16 :: ByteString -> Text
-toB16 = B16.encodeBase16
+toB16 = extractBase16 . B16.encodeBase16
 
 fromB16 :: Text -> Either Text ByteString
-fromB16 txt = B16.decodeBase16 $ T.encodeUtf8 txt
+fromB16 txt = B16.decodeBase16Untyped $ T.encodeUtf8 txt
 
 readNatural :: String -> Maybe Natural
 readNatural = readMaybe

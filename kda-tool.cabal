@@ -28,6 +28,8 @@ library
     Commands.Sign
     Commands.Verify
     Commands.WalletSign
+    Kadena.SigningApi
+    Kadena.SigningTypes
     Keys
     Logger
     TxTemplate
@@ -68,7 +70,6 @@ library
     , http-client
     , http-client-tls
     , http-types
-    , kadena-signing-api
     , katip
     , lens
     , lens-aeson
@@ -86,6 +87,7 @@ library
     , scientific
     , servant
     , servant-client
+    , split
     , stm
     , stm-linkedlist
     , string-conv
@@ -149,7 +151,6 @@ test-suite kda-tool-tests
     , http-client
     , http-client-tls
     , http-types
-    , kadena-signing-api
     , katip
     , lens
     , lens-aeson

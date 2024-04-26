@@ -162,12 +162,14 @@ test-suite kda-tool-tests
     , network-uri
     , optparse-applicative
     , pact
+    , pact-json
     , process
     , resource-pool
     , retry
     , scientific
     , servant
     , servant-client
+    , split
     , stm
     , stm-linkedlist
     , string-conv

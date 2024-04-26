@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4', '8.10.7', '9.0.2']
+        ghc: ['9.6.4']
         cabal: ['3.8']
         os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
@@ -28,14 +28,6 @@ jobs:
       run: |
         ghc --version
         cabal --version
-
-    # Project Setup
-    - name: Create cabal.project.local
-      if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
-      run: |
-        cat > cabal.project.local <<EOF
-        allow-newer: *:base
-        EOF
 
     # dist cache
     # the cache-key forces uploading of cache at least once a day, which ensures that
@@ -92,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ["8.10.7"]
+        ghc: ["9.6.4"]
         os: ["ubuntu-20.04"]
 
     steps:

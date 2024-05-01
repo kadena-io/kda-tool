@@ -29,6 +29,22 @@ jobs:
         ghc --version
         cabal --version
 
+    # System dependencies
+    - if: startsWith(matrix.os, 'macOS')
+      name: Set up system depdendencies
+      run: |
+        brew install openssl
+
+        cat > cabal.project.local <<EOF
+        package *
+          extra-include-dirs:
+              /opt/homebrew/include
+              /opt/homebrew/opt/openssl/include
+          extra-lib-dirs:
+              /opt/homebrew/lib
+              /opt/homebrew/opt/openssl/lib
+        EOF
+
     # dist cache
     # the cache-key forces uploading of cache at least once a day, which ensures that
     # upstream dependency changes are captured regularly.

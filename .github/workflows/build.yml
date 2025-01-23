@@ -73,7 +73,7 @@ jobs:
       run: cp `cabal list-bin exe:kda` .
     - name: Stripping binary
       run: strip kda
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: kda-build-${{ matrix.os }}-${{ matrix.ghc }}
         path: kda

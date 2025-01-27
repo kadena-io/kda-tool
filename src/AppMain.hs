@@ -9,11 +9,11 @@ module AppMain where
 import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Default
+import           Data.String (fromString)
 import           Katip
 import           Network.HTTP.Client hiding (withConnection)
 import           Network.HTTP.Client.TLS
 import           Options.Applicative
-import           Options.Applicative.Help.Pretty hiding ((</>))
 import           System.Directory
 import           System.FilePath
 import           System.IO
@@ -81,7 +81,7 @@ appMain = do
       , header "kda - Command line tool for interacting with the Kadena blockchain"
       , footerDoc (Just theFooter)
       ]
-    theFooter = string $ unlines
+    theFooter = fromString $ unlines
       [ "Run the following command to enable tab completion:"
       , ""
       , "source <(kda --bash-completion-script `which kda`)"

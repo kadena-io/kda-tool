@@ -15,6 +15,7 @@ import           Chainweb.Api.ChainId
 import           Chainweb.Api.Transaction
 import           Control.Error
 import           Control.Lens (makeLenses)
+import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Aeson hiding (Encoding)
 import           Data.Binary.Builder
@@ -384,9 +385,9 @@ filePatP = strOption $ mconcat
   , short 'o'
   , metavar "OUT_PAT"
   , helpDoc $ Just $ mconcat
-    [ text "Pattern to use for output filenames"
+    [ "Pattern to use for output filenames"
     , hardline
-    , text "(example: \"tx-{{chain}}.yaml\")"
+    , "(example: \"tx-{{chain}}.yaml\")"
     ]
   ]
 

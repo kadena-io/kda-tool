@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4', '8.10.7', '9.0.2']
+        ghc: ['9.6.4']
         cabal: ['3.8']
         os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
@@ -29,12 +29,20 @@ jobs:
         ghc --version
         cabal --version
 
-    # Project Setup
-    - name: Create cabal.project.local
-      if: matrix.ghc == '9.0.2' || matrix.ghc == '8.10.7'
+    # System dependencies
+    - if: startsWith(matrix.os, 'macOS')
+      name: Set up system depdendencies
       run: |
+        brew install openssl
+
         cat > cabal.project.local <<EOF
-        allow-newer: *:base
+        package *
+          extra-include-dirs:
+              /opt/homebrew/include
+              /opt/homebrew/opt/openssl/include
+          extra-lib-dirs:
+              /opt/homebrew/lib
+              /opt/homebrew/opt/openssl/lib
         EOF
 
     # dist cache
@@ -92,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ["8.10.7"]
+        ghc: ["9.6.4"]
         os: ["ubuntu-20.04"]
 
     steps:

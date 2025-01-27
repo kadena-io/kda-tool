@@ -7,15 +7,15 @@ package pact
 
 source-repository-package
     type: git
-    location: https://github.com/mightybyte/HsYAML.git
-    tag: 2ad3cbd1c84f8ab362cf1f5fd4bb3e869dfcc102
-    --sha256: 1cmwavqz7vdpjvfybxbjphnw7448xy0353wmy9h29ix24lv8w7rr
+    location: https://github.com/kadena-io/HsYAML.git
+    tag: b3c49dbceb39733dfc07c22f2097d3c74fc86e74
+    --sha256: sha256-lnnUni7D949nM4faMrORMetZi5wJy2Qhchm9ne6Cqv8=
 
 source-repository-package
     type: git
-    location: https://github.com/mightybyte/HsYAML-aeson.git
-    tag: 077110e5e52dc91d593c546dd1baaafd3066558d
-    --sha256: 1r91ldq4sb49wqg1agvbjj21z6nwiyk3yx4r80arz0fhcv083czv
+    location: https://github.com/kadena-io/HsYAML-aeson.git
+    tag: 84292468200166b96ff4e8c7324ee01e6ab6d181
+    --sha256: sha256-zaDcqwSs4ASb7PO3+E9oGzmSXlSt7bL1NiP0red7CiY=
 
 source-repository-package
     type: git
@@ -26,36 +26,23 @@ source-repository-package
 source-repository-package
     type: git
     location: https://github.com/kadena-io/chainweb-api.git
-    tag: b3e28d62c622ebda0d84e136ea6c995d5f97e46f
-    --sha256: 1m9x9n5mwmv97fkv2z3hvlhlj59xm2mpsc816hzriw28pv1jb9zh
-
-source-repository-package
-    type: git
-    location: https://github.com/pcapriotti/optparse-applicative
-    tag: 9399fd0f745e4d4d71e8bba03d402648b767363c
-    --sha256: 0gkgccix898mafrs25fajqwxbb7zmg30livrj7b79knd6a5sqj76
+    tag: 1b2de025cfdc09698bfb1ec3807cd85405d6a339
+    --sha256: sha256-06jvD1kmkmthcRkyWhVLTbytwabghInxqXQD/Lm7kbA=
 
 source-repository-package
     type: git
     location: https://github.com/kadena-io/pact.git
-    tag: 83c5944991d6edcd34d79f9fbf8e537d060689c6
-    --sha256: 0l59xi2by6l6gi10r8c437m7ics29215zr0zl1syyr3039vgmv0x
+    tag: a1c7906efbf32095883e71594a53a21162fbe5a7
+    --sha256: sha256-Mtgz/ilxa81TDUoBKQv5x3BlOftFjNV1Ak0uYzSguNQ=
 
 source-repository-package
-    type: git
-    location: https://github.com/kadena-io/signing-api.git
-    tag: b60553cc61fa15c26763ca59974e0de3512b2d66
-    --sha256: 1xi6g67grs2dm4z4jj4l6h3lz0zy3pgi7xj2yy3y1d07m6gfwbrx
-    subdir: kadena-signing-api
+  type: git
+  location: https://github.com/kadena-io/pact-json.git
+  tag: 1d260bfaa48312b54851057885de4c43c420e35f
+  --sha256: 0fzq4mzaszj5clvixx9mn1x6r4dcrnwvbl2znd0p5mmy5h2jr0hh
 
-allow-newer: hashable:base
-allow-newer: chainweb-api:aeson
-
--- bounds from pact
-constraints: aeson <2
-constraints: base16-bytestring <1
-constraints: base64-bytestring <1.1
-constraints: hashable <1.3.1
-constraints: prettyprinter <1.6.1
-constraints: unordered-containers <0.2.16
-constraints: tls <1.7.0
+source-repository-package
+  type: git
+  location: https://github.com/kadena-io/kadena-ethereum-bridge.git
+  tag: a32d901e4a79be62af9c27c01152c9a4c3912a62
+  --sha256: sha256-xdawv/tdjh61MbJKcBqm9Fje36+gVljuZsAxOTX1gP0=

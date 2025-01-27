@@ -48,15 +48,15 @@ textToEncoding = \case
 
 genericDecode :: Encoding -> ByteString -> Either Text ByteString
 genericDecode Raw = Right
-genericDecode B16 = decodeBase16
-genericDecode B64 = B64.decodeBase64
-genericDecode B64Url = B64Url.decodeBase64
+genericDecode B16 = decodeBase16Untyped
+genericDecode B64 = B64.decodeBase64Untyped
+genericDecode B64Url = B64Url.decodeBase64Untyped
 genericDecode Yaml = decodeYamlBS -- We don't actually use the result of this case
 
 decodeYamlBS :: ByteString -> Either Text ByteString
 decodeYamlBS bs = do
   v :: Value <- first (T.pack . snd) $ YA.decode1Strict bs
-  let mhash = hush . B64Url.decodeBase64 . encodeUtf8 =<< (v ^? key "hash" . _String)
+  let mhash = hush . B64Url.decodeBase64Untyped . encodeUtf8 =<< (v ^? key "hash" . _String)
       mcmd = encodeUtf8 <$> (v ^? key "cmd" . _String)
   case (mhash, mcmd) of
     (Nothing, Nothing) -> Left "YAML must contain a key 'hash' and/or 'cmd'"

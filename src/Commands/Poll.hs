@@ -10,6 +10,7 @@ import           Control.Error
 import           Control.Monad
 import           Control.Monad.Trans
 import           Data.Aeson
+import           Data.Aeson.Key
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
 import           Data.Function
@@ -46,7 +47,7 @@ pollCommand e args = do
             printf "%s: polling %d commands to %d chains\n"
               (schemeHostPortToText shp) (length txs) (length groups)
           responses <- lift $ mapM (\ts -> pollNode le n (txChain $ NE.head ts) (_transaction_hash <$> ts)) groups
-          pure $ schemeHostPortToText shp .= map responseToValue responses
+          pure $ fromText (schemeHostPortToText shp) .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
         Right results -> T.putStrLn $ toS $ encode $ Object $ mconcat results

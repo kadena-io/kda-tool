@@ -8,6 +8,8 @@ module Commands.WalletSign
 ------------------------------------------------------------------------------
 import           Control.Error
 import           Control.Lens
+import           Control.Monad
+import           Control.Monad.Trans
 import           Control.Monad.Except
 import           Data.Aeson.Lens
 import           Data.List
@@ -35,6 +37,7 @@ import           Text.Printf
 import           Types.Encoding
 import           Types.Env
 import           Utils
+import Pact.JSON.Legacy.Value (LegacyValue(_getLegacyValue))
 ------------------------------------------------------------------------------
 
 walletSignCommand :: Env -> WalletSignArgs -> IO ()
@@ -161,7 +164,7 @@ csdToSigningRequest csd = do
       Continuation _ -> Left "Cannot sign CONT transactions with the old signing API"
       Exec m -> do
         let code = _pcCode $ _pmCode m
-            d = _pmData m ^? _Object
+            d = _getLegacyValue (_pmData m) ^? _Object
         let caps = map mkDappCap $ S.toList $ S.fromList $ concatMap _siCapList $ _pSigners p
         let n = Just $ _pNonce p
             meta = _pMeta p

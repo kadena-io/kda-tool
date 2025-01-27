@@ -27,6 +27,7 @@ import           Network.HTTP.Client.TLS
 import           Network.HTTP.Types.Status
 --import           Pact.ApiReq
 import qualified Pact.ApiReq as Pact
+import qualified Pact.JSON.Encode as J
 import           Pact.Types.Command
 import           Pact.Types.SigData
 import           System.IO
@@ -100,7 +101,7 @@ genFromContents op tplContents useOldOutput = do
         cmds :: [Command Text] <- mapM (fmap snd . lift . Pact.mkApiReqCmd True "") apiReqs
         let chooseFormat i =
               if useOldOutput
-                then pure $ encodeText i
+                then pure $ encodeText $ J.toJsonViaEncode i
                 else fmap encodeText $ sdToCsd i
         let outs :: [Text] = catMaybes $ map (chooseFormat <=< hush . commandToSigData) cmds
         let outPat = maybe (defaultOutPat augmentedVars) T.pack $ _genData_outFilePat gd

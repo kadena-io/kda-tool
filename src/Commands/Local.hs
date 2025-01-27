@@ -11,6 +11,7 @@ import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Control.Monad.Trans
 import           Data.Aeson
+import           Data.Aeson.Key
 import           Data.Aeson.Lens
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
@@ -47,7 +48,7 @@ localCommand e (LocalCmdArgs args verifySigs shortOutput) = do
             printf "%s: testing %d commands on %d chains\n"
               (schemeHostPortToText shp) (length txs) (length groups)
           responses <- lift $ mapM (localNodeQuery le verifySigs n) txs
-          pure $ schemeHostPortToText shp .= map responseToValue responses
+          pure $ fromText (schemeHostPortToText shp) .= map responseToValue responses
       case res of
         Left er -> putStrLn er >> exitFailure
         Right results -> do

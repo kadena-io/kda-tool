@@ -28,6 +28,8 @@ library
     Commands.Sign
     Commands.Verify
     Commands.WalletSign
+    Kadena.SigningApi
+    Kadena.SigningTypes
     Keys
     Logger
     TxTemplate
@@ -43,7 +45,7 @@ library
       Decimal
     , HsYAML
     , HsYAML-aeson
-    , aeson < 2
+    , aeson
     , async
     , attoparsec
     , base >= 4.13 && < 5
@@ -68,7 +70,6 @@ library
     , http-client
     , http-client-tls
     , http-types
-    , kadena-signing-api
     , katip
     , lens
     , lens-aeson
@@ -79,6 +80,7 @@ library
     , network-uri
     , optparse-applicative
     , pact
+    , pact-json
     , process
     , resource-pool
     , retry
@@ -86,6 +88,7 @@ library
     , scientific
     , servant
     , servant-client
+    , split
     , stm
     , stm-linkedlist
     , string-conv
@@ -149,7 +152,6 @@ test-suite kda-tool-tests
     , http-client
     , http-client-tls
     , http-types
-    , kadena-signing-api
     , katip
     , lens
     , lens-aeson
@@ -160,12 +162,14 @@ test-suite kda-tool-tests
     , network-uri
     , optparse-applicative
     , pact
+    , pact-json
     , process
     , resource-pool
     , retry
     , scientific
     , servant
     , servant-client
+    , split
     , stm
     , stm-linkedlist
     , string-conv
